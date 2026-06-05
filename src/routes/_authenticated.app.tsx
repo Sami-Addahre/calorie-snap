@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Camera, Upload, Loader2, ChevronRight, History } from "lucide-react";
+import { Camera, Upload, Loader2, ChevronRight, History, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { analizzaImmagine, getStorico, type AnalisiResult } from "@/lib/analisi.functions";
 
 export const Route = createFileRoute("/_authenticated/app")({
