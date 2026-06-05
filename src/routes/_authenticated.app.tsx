@@ -70,13 +70,25 @@ function AppPage() {
             </div>
             <span className="font-display text-lg font-bold tracking-tight">kcalAI</span>
           </div>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
-          >
-            <History className="h-4 w-4" />
-            Storico
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
+            >
+              <History className="h-4 w-4" />
+              Storico
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = "/auth";
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
+            >
+              <LogOut className="h-4 w-4" />
+              Esci
+            </button>
+          </div>
         </div>
       </header>
 
