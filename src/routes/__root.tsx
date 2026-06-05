@@ -83,6 +83,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Fotografa il tuo piatto e scopri calorie, macro e ingredienti con l'intelligenza artificiale." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "kcalAI — Analizza le calorie dei tuoi piatti" },
+      { name: "twitter:description", content: "Fotografa il tuo piatto e scopri calorie, macro e ingredienti con l'intelligenza artificiale." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/ce06d60f-8955-45a4-9c6f-6e58873c842f" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/ce06d60f-8955-45a4-9c6f-6e58873c842f" },
     ],
     links: [
       {
