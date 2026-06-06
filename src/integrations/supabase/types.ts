@@ -45,6 +45,9 @@ export type Database = {
           id: string
           piano: string
           reset_date: string
+          stripe_customer_id: string | null
+          stripe_product_id: string | null
+          subscription_end: string | null
           user_id: string
         }
         Insert: {
@@ -53,6 +56,9 @@ export type Database = {
           id?: string
           piano?: string
           reset_date?: string
+          stripe_customer_id?: string | null
+          stripe_product_id?: string | null
+          subscription_end?: string | null
           user_id: string
         }
         Update: {
@@ -61,6 +67,9 @@ export type Database = {
           id?: string
           piano?: string
           reset_date?: string
+          stripe_customer_id?: string | null
+          stripe_product_id?: string | null
+          subscription_end?: string | null
           user_id?: string
         }
         Relationships: []
