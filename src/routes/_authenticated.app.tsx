@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useCallback } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useCallback, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Camera, Upload, Loader2, ChevronRight, History, LogOut } from "lucide-react";
+import { Camera, Upload, Loader2, ChevronRight, History, LogOut, BookOpen, Crown, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { analizzaImmagine, getStorico, type AnalisiResult } from "@/lib/analisi.functions";
+import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
 
 export const Route = createFileRoute("/_authenticated/app")({
   component: AppPage,
@@ -19,6 +20,33 @@ function AppPage() {
 
   const fetchAnalizza = useServerFn(analizzaImmagine);
   const fetchStorico = useServerFn(getStorico);
+  const fetchCheck = useServerFn(checkSubscription);
+  const fetchCheckout = useServerFn(createCheckout);
+  const fetchPortal = useServerFn(customerPortal);
+
+  const subQuery = useQuery({
+    queryKey: ["subscription"],
+    queryFn: () => fetchCheck(),
+    staleTime: 60_000,
+  });
+  const piano = subQuery.data?.piano ?? "free";
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("upgraded") === "1") {
+      subQuery.refetch();
+      window.history.replaceState({}, "", "/app");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleUpgrade = async (plan: "pro" | "ristorante") => {
+    const { url } = await fetchCheckout({ data: { plan } });
+    if (url) window.location.href = url;
+  };
+  const openPortal = async () => {
+    const { url } = await fetchPortal();
+    if (url) window.location.href = url;
+  };
 
   const storicoQuery = useQuery({
     queryKey: ["storico"],
@@ -71,6 +99,13 @@ function AppPage() {
             <span className="font-display text-lg font-bold tracking-tight">kcalAI</span>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/ricette"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
+            >
+              <BookOpen className="h-4 w-4" />
+              Ricette
+            </Link>
             <button
               onClick={() => setShowHistory(!showHistory)}
               className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
@@ -91,6 +126,25 @@ function AppPage() {
           </div>
         </div>
       </header>
+
+      <div className="border-b border-border bg-surface/40">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-2 text-xs">
+          <div className="flex items-center gap-1.5">
+            <Crown className={`h-3.5 w-3.5 ${piano !== "free" ? "text-lime" : "text-muted-foreground"}`} />
+            <span className="text-muted-foreground">Piano:</span>
+            <span className="font-semibold uppercase tracking-wide text-foreground">{piano}</span>
+          </div>
+          {piano === "free" ? (
+            <button onClick={() => handleUpgrade("pro")} className="font-semibold text-lime hover:underline">
+              Passa a Pro · €9.99/mese →
+            </button>
+          ) : (
+            <button onClick={openPortal} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+              <Settings className="h-3 w-3" /> Gestisci abbonamento
+            </button>
+          )}
+        </div>
+      </div>
 
       <main className="mx-auto max-w-3xl px-4 py-8">
         {!showHistory ? (
