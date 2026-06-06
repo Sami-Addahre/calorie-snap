@@ -163,29 +163,30 @@ function Pricing() {
       price: "€0",
       period: "/mese",
       desc: "Perfetto per iniziare a tracciare i tuoi pasti.",
-      features: ["5 analisi al giorno", "Storico analisi", "Risultati dettagliati"],
+      features: ["5 analisi foto al giorno", "Storico analisi", "Risultati dettagliati"],
       cta: "Inizia gratis",
       highlight: false,
     },
     {
       name: "Pro",
-      price: "€7",
+      price: "€9.99",
       period: "/mese",
-      desc: "Per chi vuole analisi illimitate e storico completo.",
-      features: ["Analisi illimitate", "Storico completo", "Export risultati", "Priorità AI"],
+      desc: "Analisi illimitate + ricerca ricette AI con video e valori nutrizionali.",
+      features: ["Analisi foto illimitate", "Ricerca ricette AI", "Video YouTube + nutrizione", "Storico completo"],
       cta: "Passa a Pro",
       highlight: true,
     },
     {
       name: "Ristorante",
-      price: "€19",
+      price: "€49",
       period: "/mese",
-      desc: "Per ristoranti che vogliono schede nutrizionali del menu.",
-      features: ["Menu illimitato", "Schede nutrizionali", "Export PDF", "Supporto dedicato"],
-      cta: "Contattaci",
+      desc: "Per ristoranti: schede nutrizionali del menu ed export PDF.",
+      features: ["Tutto di Pro", "Menu illimitato", "Schede nutrizionali", "Export PDF", "Supporto dedicato"],
+      cta: "Passa a Ristorante",
       highlight: false,
     },
   ];
+
 
   return (
     <section id="prezzi" className="border-t border-border px-4 py-20">
