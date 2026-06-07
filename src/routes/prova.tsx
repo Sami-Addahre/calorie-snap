@@ -16,6 +16,33 @@ export const Route = createFileRoute("/prova")({
   component: ProvaPage,
 });
 
+const GUEST_LIMIT = 3;
+const GUEST_KEY = "kcalai_guest_usage";
+const PENDING_KEY = "kcalai_pending_analisi";
+
+function getGuestUsage(): { date: string; count: number } {
+  if (typeof window === "undefined") return { date: "", count: 0 };
+  try {
+    const raw = localStorage.getItem(GUEST_KEY);
+    const today = new Date().toISOString().split("T")[0];
+    if (!raw) return { date: today, count: 0 };
+    const parsed = JSON.parse(raw) as { date: string; count: number };
+    if (parsed.date !== today) return { date: today, count: 0 };
+    return parsed;
+  } catch {
+    return { date: new Date().toISOString().split("T")[0], count: 0 };
+  }
+}
+
+function bumpGuestUsage(): number {
+  const cur = getGuestUsage();
+  const next = { date: cur.date, count: cur.count + 1 };
+  try {
+    localStorage.setItem(GUEST_KEY, JSON.stringify(next));
+  } catch {}
+  return next.count;
+}
+
 function ProvaPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [result, setResult] = useState<AnalisiResult | null>(null);
@@ -28,17 +55,40 @@ function ProvaPage() {
     async (file: File) => {
       setError(null);
       setResult(null);
+
+      // Limite ospite client-side
+      const usage = getGuestUsage();
+      if (usage.count >= GUEST_LIMIT) {
+        setError(
+          `Hai usato le ${GUEST_LIMIT} analisi gratuite di oggi. Registrati gratis per continuare e salvare lo storico.`
+        );
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        setError("Immagine troppo grande (max 10MB).");
+        return;
+      }
+
       setLoading(true);
 
       const reader = new FileReader();
+      reader.onerror = () => {
+        setError("Impossibile leggere il file. Riprova.");
+        setLoading(false);
+      };
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(",")[1];
         setPreview(reader.result as string);
         try {
           const res = await fetchAnalizza({ data: { imageBase64: base64 } });
           setResult(res);
+          bumpGuestUsage();
+          try {
+            localStorage.setItem(PENDING_KEY, JSON.stringify(res));
+          } catch {}
         } catch (err: any) {
-          setError(err?.message || "Errore durante l'analisi");
+          setError(err?.message || "Errore durante l'analisi. Riprova.");
         } finally {
           setLoading(false);
         }
