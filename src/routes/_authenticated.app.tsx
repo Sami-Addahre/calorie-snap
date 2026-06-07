@@ -23,6 +23,7 @@ function AppPage() {
   const fetchCheck = useServerFn(checkSubscription);
   const fetchCheckout = useServerFn(createCheckout);
   const fetchPortal = useServerFn(customerPortal);
+  const fetchSalva = useServerFn(salvaAnalisi);
 
   const subQuery = useQuery({
     queryKey: ["subscription"],
@@ -35,6 +36,26 @@ function AppPage() {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("upgraded") === "1") {
       subQuery.refetch();
       window.history.replaceState({}, "", "/app");
+    }
+    // Importa risultato della demo salvato prima della registrazione
+    if (typeof window !== "undefined") {
+      const pending = localStorage.getItem("kcalai_pending_analisi");
+      if (pending) {
+        try {
+          const risultato = JSON.parse(pending) as AnalisiResult;
+          fetchSalva({ data: { risultato } })
+            .then(() => {
+              localStorage.removeItem("kcalai_pending_analisi");
+              setResult(risultato);
+              setShowHistory(true);
+            })
+            .catch(() => {
+              // lascia il pending per ritentare al prossimo accesso
+            });
+        } catch {
+          localStorage.removeItem("kcalai_pending_analisi");
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
