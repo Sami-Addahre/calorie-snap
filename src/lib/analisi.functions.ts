@@ -132,6 +132,23 @@ export const getStorico = createServerFn({ method: "GET" })
     return { storico: data ?? [] };
   });
 
+// Salva un risultato dalla demo nello storico utente dopo registrazione/login
+export const salvaAnalisi = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ risultato: AnalisiResultSchema }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase.from("analisi").insert({
+      user_id: userId,
+      immagine_url: "",
+      risultato_json: data.risultato,
+    });
+    if (error) throw new Error("Impossibile salvare l'analisi");
+    return { ok: true };
+  });
+
 // Public demo: nessuna autenticazione, nessuna scrittura su DB
 export const analizzaImmagineDemo = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AnalizzaInput.parse(input))
