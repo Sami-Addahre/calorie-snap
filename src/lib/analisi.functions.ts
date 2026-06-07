@@ -131,3 +131,56 @@ export const getStorico = createServerFn({ method: "GET" })
     if (error) throw error;
     return { storico: data ?? [] };
   });
+
+// Public demo: nessuna autenticazione, nessuna scrittura su DB
+export const analizzaImmagineDemo = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => AnalizzaInput.parse(input))
+  .handler(async ({ data }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    const prompt = `Sei un nutrizionista esperto. Analizza l'immagine di cibo fornita.
+
+ISTRUZIONI CRITICHE:
+- Se l'immagine NON contiene cibo, rispondi ESATTAMENTE con questo JSON (nessun altro testo):
+{"nome_piatto":"","calorie":0,"proteine_g":0,"carboidrati_g":0,"grassi_g":0,"fibre_g":0,"zuccheri_g":0,"sodio_mg":0,"ingredienti_principali":[],"confidenza":"bassa","note":"Nessun cibo rilevato. Carica una foto di un piatto."}
+
+- Se c'è cibo, stima i valori nutrizionali e rispondi ESATTAMENTE con un JSON con questi campi esatti (solo JSON, nessun markdown):
+nome_piatto, calorie, proteine_g, carboidrati_g, grassi_g, fibre_g, zuccheri_g, sodio_mg, ingredienti_principali (array di stringhe), confidenza ("alta", "media" o "bassa"), note`;
+
+    const imageUrl = data.imageBase64.startsWith("data:")
+      ? data.imageBase64
+      : `data:image/jpeg;base64,${data.imageBase64}`;
+
+    const result = await generateText({
+      model: gateway("google/gemini-3-flash-preview"),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", image: imageUrl },
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+    });
+
+    let parsed: AnalisiResult;
+    try {
+      const cleaned = result.text
+        .replace(/^```json\s*/i, "")
+        .replace(/```\s*$/i, "")
+        .trim();
+      parsed = AnalisiResultSchema.parse(JSON.parse(cleaned));
+    } catch {
+      throw new Error("Risposta AI non valida. Riprova.");
+    }
+
+    if (parsed.nome_piatto === "" && parsed.calorie === 0) {
+      throw new Error(parsed.note || "Nessun cibo rilevato nell'immagine. Carica una foto di un piatto.");
+    }
+
+    return parsed;
+  });
+

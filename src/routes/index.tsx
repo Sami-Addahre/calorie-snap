@@ -67,10 +67,10 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
-            to="/auth"
+            to="/prova"
             className="inline-flex items-center gap-2 rounded-xl bg-lime px-6 py-3 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90"
           >
-            Prova gratis <ArrowRight className="h-4 w-4" />
+            Prova gratis · senza registrazione <ArrowRight className="h-4 w-4" />
           </Link>
           <a
             href="#come-funziona"
