@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Camera, Upload, Loader2, ChevronRight, History, LogOut, BookOpen, Crown, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { analizzaImmagine, getStorico, type AnalisiResult } from "@/lib/analisi.functions";
+import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "@/lib/analisi.functions";
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
 
 export const Route = createFileRoute("/_authenticated/app")({
