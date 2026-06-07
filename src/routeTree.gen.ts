@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProvaRouteImport } from './routes/prova'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRicetteRouteImport } from './routes/_authenticated.ricette'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated.app'
 
+const ProvaRoute = ProvaRouteImport.update({
+  id: '/prova',
+  path: '/prova',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -43,12 +49,14 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/prova': typeof ProvaRoute
   '/app': typeof AuthenticatedAppRoute
   '/ricette': typeof AuthenticatedRicetteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/prova': typeof ProvaRoute
   '/app': typeof AuthenticatedAppRoute
   '/ricette': typeof AuthenticatedRicetteRoute
 }
@@ -57,19 +65,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
+  '/prova': typeof ProvaRoute
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/ricette': typeof AuthenticatedRicetteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/app' | '/ricette'
+  fullPaths: '/' | '/auth' | '/prova' | '/app' | '/ricette'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/app' | '/ricette'
+  to: '/' | '/auth' | '/prova' | '/app' | '/ricette'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/prova'
     | '/_authenticated/app'
     | '/_authenticated/ricette'
   fileRoutesById: FileRoutesById
@@ -78,10 +88,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ProvaRoute: typeof ProvaRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/prova': {
+      id: '/prova'
+      path: '/prova'
+      fullPath: '/prova'
+      preLoaderRoute: typeof ProvaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -138,6 +156,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
+  ProvaRoute: ProvaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
