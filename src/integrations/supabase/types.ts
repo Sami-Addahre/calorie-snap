@@ -38,6 +38,27 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_usage: {
+        Row: {
+          count: number
+          ip_hash: string
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          count?: number
+          ip_hash: string
+          updated_at?: string
+          usage_date: string
+        }
+        Update: {
+          count?: number
+          ip_hash?: string
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           analisi_oggi: number
