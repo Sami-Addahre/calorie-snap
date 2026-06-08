@@ -167,6 +167,14 @@ function ProvaPage() {
             </div>
             <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">Carica una foto del tuo piatto</h1>
             <p className="mt-2 text-sm text-muted-foreground">L'AI ti dice calorie, proteine, carboidrati e grassi in pochi secondi.</p>
+            {usage && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {newDay && "È un nuovo giorno — "}
+                {usage.remaining > 0
+                  ? `${usage.remaining} di ${usage.limit} analisi gratuite disponibili oggi.`
+                  : `Limite gratuito esaurito. Si resetta a mezzanotte.`}
+              </p>
+            )}
           </div>
         )}
 
