@@ -176,10 +176,39 @@ export const salvaAnalisi = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Public demo: nessuna autenticazione, nessuna scrittura su DB
+// Public demo: nessuna autenticazione. Limite giornaliero per IP via DB.
+export const getGuestUsage = createServerFn({ method: "GET" }).handler(async () => {
+  const ip = getClientIp();
+  const ipHash = hashIp(ip);
+  const today = new Date().toISOString().split("T")[0];
+  const { data: row } = await supabaseAdmin
+    .from("guest_usage")
+    .select("count")
+    .eq("ip_hash", ipHash)
+    .eq("usage_date", today)
+    .maybeSingle();
+  const used = row?.count ?? 0;
+  return { used, limit: GUEST_DAILY_LIMIT, remaining: Math.max(0, GUEST_DAILY_LIMIT - used) };
+});
+
 export const analizzaImmagineDemo = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AnalizzaInput.parse(input))
   .handler(async ({ data }) => {
+    const ip = getClientIp();
+    const ipHash = hashIp(ip);
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: row } = await supabaseAdmin
+      .from("guest_usage")
+      .select("count")
+      .eq("ip_hash", ipHash)
+      .eq("usage_date", today)
+      .maybeSingle();
+    const used = row?.count ?? 0;
+    if (used >= GUEST_DAILY_LIMIT) {
+      throw new GuestLimitError(0, GUEST_DAILY_LIMIT);
+    }
+
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
