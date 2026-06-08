@@ -113,7 +113,32 @@ function RicettePage() {
         {error && (
           <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-foreground">
             {error}
-          </div>
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "Recipe",
+                  name: ricetta.nome,
+                  recipeYield: `${ricetta.porzioni} porzioni`,
+                  totalTime: `PT${ricetta.tempo_minuti}M`,
+                  recipeIngredient: ricetta.ingredienti.map((i) => `${i.quantita} ${i.nome}`.trim()),
+                  recipeInstructions: ricetta.procedimento.map((step, i) => ({
+                    "@type": "HowToStep",
+                    position: i + 1,
+                    text: step,
+                  })),
+                  nutrition: {
+                    "@type": "NutritionInformation",
+                    calories: `${Math.round(ricetta.nutrizione_per_porzione.calorie)} kcal`,
+                    proteinContent: `${Math.round(ricetta.nutrizione_per_porzione.proteine_g)} g`,
+                    carbohydrateContent: `${Math.round(ricetta.nutrizione_per_porzione.carboidrati_g)} g`,
+                    fatContent: `${Math.round(ricetta.nutrizione_per_porzione.grassi_g)} g`,
+                  },
+                }),
+              }}
+            />
+            </div>
         )}
 
         {ricetta && (
