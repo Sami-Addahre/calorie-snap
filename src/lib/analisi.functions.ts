@@ -254,6 +254,17 @@ nome_piatto, calorie, proteine_g, carboidrati_g, grassi_g, fibre_g, zuccheri_g, 
       throw new Error(parsed.note || "Nessun cibo rilevato nell'immagine. Carica una foto di un piatto.");
     }
 
-    return parsed;
+    const nextCount = used + 1;
+    await supabaseAdmin
+      .from("guest_usage")
+      .upsert(
+        { ip_hash: ipHash, usage_date: today, count: nextCount, updated_at: new Date().toISOString() },
+        { onConflict: "ip_hash,usage_date" }
+      );
+
+    return {
+      ...parsed,
+      _guest: { used: nextCount, limit: GUEST_DAILY_LIMIT, remaining: Math.max(0, GUEST_DAILY_LIMIT - nextCount) },
+    };
   });
 
