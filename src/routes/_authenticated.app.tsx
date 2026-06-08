@@ -8,6 +8,15 @@ import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
 
 export const Route = createFileRoute("/_authenticated/app")({
+  head: () => ({
+    meta: [
+      { title: "Analizza un piatto — kcalAI" },
+      { name: "description", content: "La tua dashboard kcalAI: carica una foto del piatto, vedi calorie e macro stimati dall'AI e consulta lo storico delle analisi." },
+      { property: "og:title", content: "Dashboard kcalAI — Analizza un piatto" },
+      { property: "og:description", content: "Carica una foto, vedi calorie e macro, consulta lo storico." },
+      { name: "robots", content: "noindex,follow" },
+    ],
+  }),
   component: AppPage,
 });
 
