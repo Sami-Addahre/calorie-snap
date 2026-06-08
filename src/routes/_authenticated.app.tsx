@@ -8,6 +8,15 @@ import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
 
 export const Route = createFileRoute("/_authenticated/app")({
+  head: () => ({
+    meta: [
+      { title: "Analizza un piatto — kcalAI" },
+      { name: "description", content: "La tua dashboard kcalAI: carica una foto del piatto, vedi calorie e macro stimati dall'AI e consulta lo storico delle analisi." },
+      { property: "og:title", content: "Dashboard kcalAI — Analizza un piatto" },
+      { property: "og:description", content: "Carica una foto, vedi calorie e macro, consulta lo storico." },
+      { name: "robots", content: "noindex,follow" },
+    ],
+  }),
   component: AppPage,
 });
 
@@ -179,6 +188,7 @@ function AppPage() {
                 type="file"
                 accept="image/*"
                 capture="environment"
+                aria-label="Carica una foto del piatto da analizzare"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFile(file);
@@ -188,19 +198,19 @@ function AppPage() {
               {preview ? (
                 <img
                   src={preview}
-                  alt="Preview"
+                  alt="Anteprima della foto del pasto caricata"
                   className="mb-4 max-h-64 rounded-xl object-cover"
                 />
               ) : (
                 <>
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                    <Upload className="h-7 w-7 text-muted-foreground" />
+                    <Upload className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                   </div>
-                  <h3 className="font-display text-xl font-semibold">
-                    Carica una foto del tuo piatto
-                  </h3>
+                  <h1 className="font-display text-xl font-semibold">
+                    Analizza il tuo pasto
+                  </h1>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Trascina qui oppure clicca per scegliere. Scatta direttamente con la fotocamera.
+                    Trascina qui una foto del piatto oppure clicca per scegliere. Scatta direttamente con la fotocamera.
                   </p>
                 </>
               )}

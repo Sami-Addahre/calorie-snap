@@ -5,6 +5,19 @@ import { lovable } from "@/integrations/lovable";
 import { Camera } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  head: () => ({
+    meta: [
+      { title: "Accedi o registrati — kcalAI" },
+      { name: "description", content: "Accedi o crea un account gratuito kcalAI per salvare lo storico delle tue analisi nutrizionali e sbloccare la ricerca ricette AI." },
+      { property: "og:title", content: "Accedi a kcalAI" },
+      { property: "og:description", content: "Accedi o crea un account gratuito per salvare le tue analisi e sbloccare le ricette AI." },
+      { property: "og:url", content: "https://kcalvison.lovable.app/auth" },
+      { name: "robots", content: "noindex,follow" },
+    ],
+    links: [
+      { rel: "canonical", href: "https://kcalvison.lovable.app/auth" },
+    ],
+  }),
   component: AuthPage,
 });
 

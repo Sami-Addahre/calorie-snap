@@ -4,8 +4,38 @@ import { Camera, Upload, Zap, ChefHat, Smartphone, ArrowRight, Check } from "luc
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "kcalAI — Analizza le calorie dei tuoi piatti" },
-      { name: "description", content: "Fotografa il tuo piatto e scopri calorie, macro e ingredienti con l'intelligenza artificiale." },
+      { title: "kcalAI — Calorie del piatto da una foto con AI" },
+      { name: "description", content: "Fotografa il tuo piatto e l'AI ti dice calorie, proteine, carboidrati e grassi in pochi secondi. Provalo gratis senza registrazione." },
+      { property: "og:title", content: "kcalAI — Calorie del piatto da una foto con AI" },
+      { property: "og:description", content: "Fotografa il tuo piatto e l'AI ti dice calorie, proteine, carboidrati e grassi in pochi secondi." },
+      { property: "og:url", content: "https://kcalvison.lovable.app/" },
+      { name: "twitter:title", content: "kcalAI — Calorie del piatto da una foto con AI" },
+      { name: "twitter:description", content: "Fotografa il tuo piatto e l'AI ti dice calorie e macro in pochi secondi." },
+    ],
+    links: [
+      { rel: "canonical", href: "https://kcalvison.lovable.app/" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "kcalAI",
+          url: "https://kcalvison.lovable.app/",
+          logo: "https://kcalvison.lovable.app/favicon.ico",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "kcalAI",
+          url: "https://kcalvison.lovable.app/",
+          inLanguage: "it-IT",
+        }),
+      },
     ],
   }),
   component: LandingPage,
@@ -15,10 +45,12 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
-      <Hero />
-      <HowItWorks />
-      <Pricing />
-      <CTA />
+      <main>
+        <Hero />
+        <HowItWorks />
+        <Pricing />
+        <CTA />
+      </main>
       <Footer />
     </div>
   );
