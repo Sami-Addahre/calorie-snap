@@ -45,10 +45,12 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
-      <Hero />
-      <HowItWorks />
-      <Pricing />
-      <CTA />
+      <main>
+        <Hero />
+        <HowItWorks />
+        <Pricing />
+        <CTA />
+      </main>
       <Footer />
     </div>
   );
