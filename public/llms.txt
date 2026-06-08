@@ -1,0 +1,10 @@
+# kcalAI
+
+> Fotografa il tuo piatto e l'AI ti dice calorie, proteine, carboidrati e grassi in pochi secondi. Provalo gratis senza registrazione.
+
+kcalAI è un'app web italiana che usa l'intelligenza artificiale per analizzare foto di cibo e stimare i valori nutrizionali del piatto. Include una demo gratuita senza registrazione e un piano Pro con ricerca ricette AI (ingredienti, procedimento, video YouTube e valori nutrizionali per porzione).
+
+## Pages
+
+- [Home](/): Cos'è kcalAI, come funziona e prezzi.
+- [Prova gratis](/prova): Carica una foto del piatto e vedi calorie e macro senza registrarti.
