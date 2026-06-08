@@ -6,6 +6,15 @@ import { cercaRicetta, type Ricetta } from "@/lib/ricetta.functions";
 import { createCheckout } from "@/lib/stripe.functions";
 
 export const Route = createFileRoute("/_authenticated/ricette")({
+  head: () => ({
+    meta: [
+      { title: "Ricette AI — kcalAI" },
+      { name: "description", content: "Cerca un piatto e l'AI ti dà ingredienti, procedimento, video YouTube e valori nutrizionali per porzione. Incluso nel piano Pro di kcalAI." },
+      { property: "og:title", content: "Ricette AI — kcalAI" },
+      { property: "og:description", content: "Cerca un piatto: ingredienti, procedimento, video YouTube e valori nutrizionali generati dall'AI." },
+      { name: "robots", content: "noindex,follow" },
+    ],
+  }),
   component: RicettePage,
 });
 
