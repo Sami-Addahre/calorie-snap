@@ -1,8 +1,35 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { createHash } from "crypto";
+
+const GUEST_DAILY_LIMIT = 3;
+
+function getClientIp(): string {
+  const candidates = [
+    getRequestHeader("cf-connecting-ip"),
+    getRequestHeader("x-real-ip"),
+    getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim(),
+  ];
+  for (const c of candidates) if (c) return c;
+  return "unknown";
+}
+
+function hashIp(ip: string): string {
+  const salt = process.env.GUEST_IP_SALT ?? "kcalai-guest-salt";
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+}
+
+class GuestLimitError extends Error {
+  code = "GUEST_LIMIT" as const;
+  constructor(public remaining: number, public limit: number) {
+    super(`Hai usato le ${limit} analisi gratuite di oggi. Registrati gratis per continuare e salvare lo storico.`);
+  }
+}
 
 const AnalizzaInput = z.object({
   imageBase64: z.string().min(1),
