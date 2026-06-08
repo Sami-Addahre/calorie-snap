@@ -113,6 +113,11 @@ function RicettePage() {
         {error && (
           <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-foreground">
             {error}
+          </div>
+        )}
+
+        {ricetta && (
+          <div className="mt-8 space-y-6">
             <script
               type="application/ld+json"
               dangerouslySetInnerHTML={{
@@ -138,11 +143,6 @@ function RicettePage() {
                 }),
               }}
             />
-            </div>
-        )}
-
-        {ricetta && (
-          <div className="mt-8 space-y-6">
             <div className="rounded-2xl border border-border bg-surface p-6">
               <h2 className="font-display text-2xl font-bold">{ricetta.nome}</h2>
               <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
