@@ -1,8 +1,35 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { createHash } from "crypto";
+
+const GUEST_DAILY_LIMIT = 3;
+
+function getClientIp(): string {
+  const candidates = [
+    getRequestHeader("cf-connecting-ip"),
+    getRequestHeader("x-real-ip"),
+    getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim(),
+  ];
+  for (const c of candidates) if (c) return c;
+  return "unknown";
+}
+
+function hashIp(ip: string): string {
+  const salt = process.env.GUEST_IP_SALT ?? "kcalai-guest-salt";
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+}
+
+class GuestLimitError extends Error {
+  code = "GUEST_LIMIT" as const;
+  constructor(public remaining: number, public limit: number) {
+    super(`Hai usato le ${limit} analisi gratuite di oggi. Registrati gratis per continuare e salvare lo storico.`);
+  }
+}
 
 const AnalizzaInput = z.object({
   imageBase64: z.string().min(1),
@@ -149,10 +176,39 @@ export const salvaAnalisi = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Public demo: nessuna autenticazione, nessuna scrittura su DB
+// Public demo: nessuna autenticazione. Limite giornaliero per IP via DB.
+export const getGuestUsage = createServerFn({ method: "GET" }).handler(async () => {
+  const ip = getClientIp();
+  const ipHash = hashIp(ip);
+  const today = new Date().toISOString().split("T")[0];
+  const { data: row } = await supabaseAdmin
+    .from("guest_usage")
+    .select("count")
+    .eq("ip_hash", ipHash)
+    .eq("usage_date", today)
+    .maybeSingle();
+  const used = row?.count ?? 0;
+  return { used, limit: GUEST_DAILY_LIMIT, remaining: Math.max(0, GUEST_DAILY_LIMIT - used) };
+});
+
 export const analizzaImmagineDemo = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AnalizzaInput.parse(input))
   .handler(async ({ data }) => {
+    const ip = getClientIp();
+    const ipHash = hashIp(ip);
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: row } = await supabaseAdmin
+      .from("guest_usage")
+      .select("count")
+      .eq("ip_hash", ipHash)
+      .eq("usage_date", today)
+      .maybeSingle();
+    const used = row?.count ?? 0;
+    if (used >= GUEST_DAILY_LIMIT) {
+      throw new GuestLimitError(0, GUEST_DAILY_LIMIT);
+    }
+
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
@@ -198,6 +254,17 @@ nome_piatto, calorie, proteine_g, carboidrati_g, grassi_g, fibre_g, zuccheri_g, 
       throw new Error(parsed.note || "Nessun cibo rilevato nell'immagine. Carica una foto di un piatto.");
     }
 
-    return parsed;
+    const nextCount = used + 1;
+    await supabaseAdmin
+      .from("guest_usage")
+      .upsert(
+        { ip_hash: ipHash, usage_date: today, count: nextCount, updated_at: new Date().toISOString() },
+        { onConflict: "ip_hash,usage_date" }
+      );
+
+    return {
+      ...parsed,
+      _guest: { used: nextCount, limit: GUEST_DAILY_LIMIT, remaining: Math.max(0, GUEST_DAILY_LIMIT - nextCount) },
+    };
   });
 

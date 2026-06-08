@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, Upload, Loader2, ArrowLeft, Sparkles, Lock } from "lucide-react";
-import { analizzaImmagineDemo, type AnalisiResult } from "@/lib/analisi.functions";
+import { analizzaImmagineDemo, getGuestUsage as getGuestUsageFn, type AnalisiResult } from "@/lib/analisi.functions";
 
 export const Route = createFileRoute("/prova")({
   head: () => ({
@@ -16,31 +16,12 @@ export const Route = createFileRoute("/prova")({
   component: ProvaPage,
 });
 
-const GUEST_LIMIT = 3;
-const GUEST_KEY = "kcalai_guest_usage";
 const PENDING_KEY = "kcalai_pending_analisi";
 
-function getGuestUsage(): { date: string; count: number } {
-  if (typeof window === "undefined") return { date: "", count: 0 };
-  try {
-    const raw = localStorage.getItem(GUEST_KEY);
-    const today = new Date().toISOString().split("T")[0];
-    if (!raw) return { date: today, count: 0 };
-    const parsed = JSON.parse(raw) as { date: string; count: number };
-    if (parsed.date !== today) return { date: today, count: 0 };
-    return parsed;
-  } catch {
-    return { date: new Date().toISOString().split("T")[0], count: 0 };
-  }
-}
-
-function bumpGuestUsage(): number {
-  const cur = getGuestUsage();
-  const next = { date: cur.date, count: cur.count + 1 };
-  try {
-    localStorage.setItem(GUEST_KEY, JSON.stringify(next));
-  } catch {}
-  return next.count;
+function msUntilLocalMidnight(): number {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5, 0);
+  return next.getTime() - now.getTime();
 }
 
 function ProvaPage() {
@@ -48,19 +29,50 @@ function ProvaPage() {
   const [result, setResult] = useState<AnalisiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  const [newDay, setNewDay] = useState(false);
+  const midnightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAnalizza = useServerFn(analizzaImmagineDemo);
+  const fetchUsage = useServerFn(getGuestUsageFn);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      const u = await fetchUsage();
+      setUsage(u);
+      return u;
+    } catch {
+      return null;
+    }
+  }, [fetchUsage]);
+
+  // Initial usage + schedule midnight reset
+  useEffect(() => {
+    refreshUsage();
+    const schedule = () => {
+      if (midnightTimer.current) clearTimeout(midnightTimer.current);
+      midnightTimer.current = setTimeout(async () => {
+        await refreshUsage();
+        setNewDay(true);
+        setError(null);
+        schedule();
+      }, msUntilLocalMidnight());
+    };
+    schedule();
+    return () => {
+      if (midnightTimer.current) clearTimeout(midnightTimer.current);
+    };
+  }, [refreshUsage]);
 
   const handleFile = useCallback(
     async (file: File) => {
       setError(null);
       setResult(null);
+      setNewDay(false);
 
-      // Limite ospite client-side
-      const usage = getGuestUsage();
-      if (usage.count >= GUEST_LIMIT) {
+      if (usage && usage.remaining <= 0) {
         setError(
-          `Hai usato le ${GUEST_LIMIT} analisi gratuite di oggi. Registrati gratis per continuare e salvare lo storico.`
+          `Hai usato le ${usage.limit} analisi gratuite di oggi. Si resetta a mezzanotte — oppure registrati gratis per continuare subito e salvare lo storico.`
         );
         return;
       }
@@ -82,20 +94,30 @@ function ProvaPage() {
         setPreview(reader.result as string);
         try {
           const res = await fetchAnalizza({ data: { imageBase64: base64 } });
-          setResult(res);
-          bumpGuestUsage();
+          const { _guest, ...analisi } = res as AnalisiResult & {
+            _guest?: { used: number; limit: number; remaining: number };
+          };
+          setResult(analisi);
+          if (_guest) setUsage(_guest);
+          else refreshUsage();
           try {
-            localStorage.setItem(PENDING_KEY, JSON.stringify(res));
+            localStorage.setItem(PENDING_KEY, JSON.stringify(analisi));
           } catch {}
         } catch (err: any) {
-          setError(err?.message || "Errore durante l'analisi. Riprova.");
+          const msg = err?.message || "Errore durante l'analisi. Riprova.";
+          setError(
+            msg.includes("limite") || msg.includes("GUEST_LIMIT")
+              ? `Hai raggiunto il limite gratuito di oggi. Si resetta a mezzanotte — o registrati gratis per continuare ora.`
+              : msg
+          );
+          refreshUsage();
         } finally {
           setLoading(false);
         }
       };
       reader.readAsDataURL(file);
     },
-    [fetchAnalizza]
+    [fetchAnalizza, refreshUsage, usage]
   );
 
   const onDrop = useCallback(
@@ -112,6 +134,7 @@ function ProvaPage() {
     setResult(null);
     setError(null);
   };
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -144,6 +167,14 @@ function ProvaPage() {
             </div>
             <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">Carica una foto del tuo piatto</h1>
             <p className="mt-2 text-sm text-muted-foreground">L'AI ti dice calorie, proteine, carboidrati e grassi in pochi secondi.</p>
+            {usage && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {newDay && "È un nuovo giorno — "}
+                {usage.remaining > 0
+                  ? `${usage.remaining} di ${usage.limit} analisi gratuite disponibili oggi.`
+                  : `Limite gratuito esaurito. Si resetta a mezzanotte.`}
+              </p>
+            )}
           </div>
         )}
 
