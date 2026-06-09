@@ -7,11 +7,15 @@ import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const FREE_DAILY_TOKENS = 5;
 
+const DateInput = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+
 export const getCoachOggi = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((i: unknown) => DateInput.parse(i ?? {}))
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const today = new Date().toISOString().split("T")[0];
+    const giorno = data?.date ?? today;
 
     const [profileRes, analisiRes, idrRes] = await Promise.all([
       supabase
@@ -23,12 +27,12 @@ export const getCoachOggi = createServerFn({ method: "GET" })
         .from("analisi")
         .select("id, pasto, kcal, risultato_json, created_at")
         .eq("user_id", userId)
-        .eq("consumed_at", today),
+        .eq("consumed_at", giorno),
       supabase
         .from("idratazione")
         .select("ml")
         .eq("user_id", userId)
-        .eq("data", today),
+        .eq("data", giorno),
     ]);
 
     const piano = profileRes.data?.piano ?? "free";
@@ -51,7 +55,21 @@ export const getCoachOggi = createServerFn({ method: "GET" })
     const kcal_oggi = analisi.reduce((s, a) => s + a.kcal, 0);
     const ml_oggi = (idrRes.data ?? []).reduce((s, r: any) => s + (r.ml ?? 0), 0);
 
-    return { kcal_oggi, target_kcal, ml_oggi, target_ml, analisi, piano, tokensUsed, tokensLimit };
+    return { date: giorno, kcal_oggi, target_kcal, ml_oggi, target_ml, analisi, piano, tokensUsed, tokensLimit };
+  });
+
+export const eliminaAnalisi = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("analisi")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw new Error("Impossibile eliminare il pasto");
+    return { ok: true };
   });
 
 export const aggiungiIdratazione = createServerFn({ method: "POST" })
@@ -68,13 +86,28 @@ export const aggiungiIdratazione = createServerFn({ method: "POST" })
 
 export const getCoachAdvice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ domanda: z.string().trim().min(2).max(300) }).parse(i))
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        domanda: z.string().trim().min(2).max(500),
+        storia: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string().min(1).max(2000),
+            })
+          )
+          .max(12)
+          .optional(),
+      })
+      .parse(i)
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("piano")
+      .select("piano, target_kcal, target_ml")
       .eq("user_id", userId)
       .single();
 
@@ -82,6 +115,9 @@ export const getCoachAdvice = createServerFn({ method: "POST" })
     if (piano !== "pro" && piano !== "ristorante") {
       throw new Error("UPGRADE_REQUIRED");
     }
+
+    const targetKcal = profile?.target_kcal ?? 2000;
+    const targetMl = profile?.target_ml ?? 2000;
 
     const today = new Date().toISOString().split("T")[0];
     const [analisiRes, idrRes] = await Promise.all([
@@ -102,27 +138,52 @@ export const getCoachAdvice = createServerFn({ method: "POST" })
       pasto: a.pasto ?? "altro",
       kcal: Number(a.kcal ?? 0),
       nome: a.risultato_json?.nome_piatto ?? "Pasto",
+      proteine: Number(a.risultato_json?.proteine_g ?? 0),
+      carboidrati: Number(a.risultato_json?.carboidrati_g ?? 0),
+      grassi: Number(a.risultato_json?.grassi_g ?? 0),
     }));
     const kcalTotali = pasti.reduce((s, p) => s + p.kcal, 0);
+    const proteineTotali = pasti.reduce((s, p) => s + p.proteine, 0);
     const mlTotali = (idrRes.data ?? []).reduce((s, r: any) => s + (r.ml ?? 0), 0);
 
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
 
-    const prompt = `Sei un nutrizionista AI italiano. L'utente ha registrato oggi questi pasti:
-${pasti.map((p) => `- ${p.pasto}: ${p.nome} (${p.kcal} kcal)`).join("\n")}
+    const contestoPasti =
+      pasti.length > 0
+        ? pasti.map((p) => `- ${p.pasto}: ${p.nome} (${p.kcal} kcal, P ${p.proteine}g / C ${p.carboidrati}g / G ${p.grassi}g)`).join("\n")
+        : "- Nessun pasto registrato oggi.";
 
-Totale calorie oggi: ${kcalTotali} kcal (target 2000 kcal)
-Idratazione oggi: ${mlTotali} ml (target 2000 ml)
+    const systemPrompt = `Sei "Coach AI", un assistente personale italiano esperto di nutrizione, dieta e sport/allenamento. 
+Aiuti l'utente con consigli pratici su alimentazione, calorie, macronutrienti, idratazione, allenamento, recupero e abitudini sane.
 
-L'utente chiede: "${data.domanda}"
+DATI DELL'UTENTE PER OGGI:
+Pasti registrati:
+${contestoPasti}
+Totale calorie: ${kcalTotali} kcal (obiettivo ${targetKcal} kcal)
+Proteine totali: ${proteineTotali} g
+Idratazione: ${mlTotali} ml (obiettivo ${targetMl} ml)
 
-Rispondi in italiano, in modo conciso (massimo 3 frasi), con un consiglio pratico e personalizzato basato sui suoi dati di oggi.`;
+REGOLE:
+- Rispondi sempre in italiano, in tono amichevole e motivante.
+- Sii conciso e concreto (massimo 4-5 frasi), usa i dati reali quando rilevanti.
+- Per domande su sport/allenamento dai indicazioni pratiche (esercizi, serie, frequenza) ma ricorda che non sostituisci un medico.
+- Se mancano dati, fai una domanda di chiarimento invece di inventare.
+- Non dare diagnosi mediche; per problemi di salute consiglia un professionista.`;
+
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: systemPrompt },
+      ...((data.storia ?? []).map((m) => ({ role: m.role, content: m.content })) as Array<{
+        role: "user" | "assistant";
+        content: string;
+      }>),
+      { role: "user", content: data.domanda },
+    ];
 
     const result = await generateText({
       model: gateway("google/gemini-3-flash-preview"),
-      messages: [{ role: "user", content: prompt }],
+      messages,
     });
 
     return { advice: result.text.trim() };

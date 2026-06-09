@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Upload, Loader as Loader2, ChevronRight, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles } from "lucide-react";
+import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "@/lib/analisi.functions";
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
-import { getCoachOggi, aggiungiIdratazione, getCoachAdvice } from "@/lib/coach.functions";
+import { getCoachOggi, aggiungiIdratazione, getCoachAdvice, eliminaAnalisi } from "@/lib/coach.functions";
 import { ShareDialog } from "@/components/share-dialog";
 import { MealPicker, type Pasto } from "@/components/meal-picker";
 import { ProgressRing } from "@/components/progress-ring";
@@ -33,9 +33,10 @@ function AppPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showShare, setShowShare] = useState(false);
   const [coachInput, setCoachInput] = useState("");
-  const [coachReply, setCoachReply] = useState<string | null>(null);
+  const [coachMessages, setCoachMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
 
   const qc = useQueryClient();
   const fetchAnalizza = useServerFn(analizzaImmagine);
@@ -47,6 +48,7 @@ function AppPage() {
   const fetchCoach = useServerFn(getCoachOggi);
   const fetchIdr = useServerFn(aggiungiIdratazione);
   const fetchAdvice = useServerFn(getCoachAdvice);
+  const fetchElimina = useServerFn(eliminaAnalisi);
 
   const subQuery = useQuery({
     queryKey: ["subscription"],
@@ -55,9 +57,12 @@ function AppPage() {
   });
   const piano = subQuery.data?.piano ?? "free";
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const isToday = selectedDate === todayStr;
+
   const coachQuery = useQuery({
-    queryKey: ["coach-oggi"],
-    queryFn: () => fetchCoach(),
+    queryKey: ["coach-oggi", selectedDate],
+    queryFn: () => fetchCoach({ data: { date: selectedDate } }),
     staleTime: 10_000,
   });
 
@@ -149,15 +154,30 @@ function AppPage() {
     qc.invalidateQueries({ queryKey: ["coach-oggi"] });
   };
 
+  const deletePasto = async (id: string) => {
+    await fetchElimina({ data: { id } });
+    qc.invalidateQueries({ queryKey: ["coach-oggi"] });
+    qc.invalidateQueries({ queryKey: ["storico"] });
+  };
+
+  const shiftDate = (deltaDays: number) => {
+    const d = new Date(selectedDate + "T00:00:00");
+    d.setDate(d.getDate() + deltaDays);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  };
+
   const askCoach = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!coachInput.trim()) return;
+    const domanda = coachInput.trim();
+    if (!domanda || coachLoading) return;
     setCoachLoading(true);
     setCoachError(null);
-    setCoachReply(null);
+    const storia = coachMessages.slice(-10);
+    setCoachMessages((prev) => [...prev, { role: "user", content: domanda }]);
+    setCoachInput("");
     try {
-      const res = await fetchAdvice({ data: { domanda: coachInput.trim() } });
-      setCoachReply(res.advice);
+      const res = await fetchAdvice({ data: { domanda, storia } });
+      setCoachMessages((prev) => [...prev, { role: "assistant", content: res.advice }]);
     } catch (err: any) {
       const msg = err?.message || "Errore dal coach";
       if (msg.includes("UPGRADE_REQUIRED")) {
@@ -235,7 +255,30 @@ function AppPage() {
           <div className="space-y-6">
             {/* Coach rings */}
             <section className="rounded-2xl border border-border bg-surface p-6">
-              <h1 className="font-display text-xl font-bold">Coach AI · Oggi</h1>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="font-display text-xl font-bold">Coach AI</h1>
+                <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">
+                  <button
+                    onClick={() => shiftDate(-1)}
+                    aria-label="Giorno precedente"
+                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="inline-flex min-w-[7.5rem] items-center justify-center gap-1.5 px-2 text-sm font-semibold">
+                    <CalendarDays className="h-3.5 w-3.5 text-lime" />
+                    {isToday ? "Oggi" : new Date(selectedDate + "T00:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                  </span>
+                  <button
+                    onClick={() => shiftDate(1)}
+                    disabled={isToday}
+                    aria-label="Giorno successivo"
+                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
               <div className="mt-6 grid grid-cols-2 gap-6">
                 <div className="flex flex-col items-center">
                   <ProgressRing
@@ -262,7 +305,8 @@ function AppPage() {
                       <button
                         key={ml}
                         onClick={() => addWater(ml)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-400/20"
+                        disabled={!isToday}
+                        className="inline-flex items-center gap-1 rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Droplet className="h-3 w-3" />+{ml}ml
                       </button>
@@ -271,55 +315,130 @@ function AppPage() {
                 </div>
               </div>
 
-              {coach && coach.analisi.length > 0 && (
-                <div className="mt-6 border-t border-border pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pasti di oggi</p>
+              <div className="mt-6 border-t border-border pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {isToday ? "Pasti di oggi" : "Pasti del giorno"}
+                </p>
+                {coach && coach.analisi.length > 0 ? (
                   <ul className="mt-2 space-y-1.5 text-sm">
                     {coach.analisi.map((a) => (
-                      <li key={a.id} className="flex items-center justify-between rounded-lg bg-background px-3 py-2">
-                        <div>
+                      <li key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-background px-3 py-2">
+                        <div className="min-w-0">
                           <span className="text-xs uppercase text-muted-foreground">{a.pasto}</span>{" "}
                           <span className="font-medium">{a.nome}</span>
                         </div>
-                        <span className="font-display font-bold text-lime">{Math.round(a.kcal)} kcal</span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="font-display font-bold text-lime">{Math.round(a.kcal)} kcal</span>
+                          <button
+                            onClick={() => deletePasto(a.id)}
+                            aria-label={`Elimina ${a.nome}`}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
+                ) : (
+                  <p className="mt-3 rounded-lg bg-background px-3 py-6 text-center text-sm text-muted-foreground">
+                    {isToday
+                      ? "Nessun pasto registrato oggi. Aggiungine uno qui sotto."
+                      : "Nessun pasto registrato in questo giorno."}
+                  </p>
+                )}
+              </div>
             </section>
 
             {/* Coach AI chat — Pro only */}
             <section className="rounded-2xl border border-border bg-surface p-6">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-lime" />
-                <h2 className="font-display text-lg font-bold">Chiedi al Coach AI</h2>
-                {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-lime" />
+                  <h2 className="font-display text-lg font-bold">Coach AI</h2>
+                  {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
+                </div>
+                {isPro && coachMessages.length > 0 && (
+                  <button
+                    onClick={() => { setCoachMessages([]); setCoachError(null); }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Nuova chat
+                  </button>
+                )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {isPro
-                  ? "Fai una domanda nutrizionale e il coach ti risponde basandosi sui tuoi dati di oggi."
-                  : "Consigli personalizzati dal coach AI — incluso nel piano Pro."}
+                  ? "Chiedi quello che vuoi su dieta, nutrizione e sport. Il coach conosce i tuoi dati di oggi."
+                  : "Il tuo coach personale di dieta e sport — incluso nel piano Pro."}
               </p>
 
               {isPro ? (
-                <form onSubmit={askCoach} className="mt-4 flex gap-2">
-                  <input
-                    type="text"
-                    value={coachInput}
-                    onChange={(e) => setCoachInput(e.target.value)}
-                    placeholder="es. Cosa dovrei mangiare a cena?"
-                    maxLength={300}
-                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none focus:ring-1 focus:ring-lime"
-                  />
-                  <button
-                    type="submit"
-                    disabled={coachLoading || !coachInput.trim()}
-                    className="rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90 disabled:opacity-50"
-                  >
-                    {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </button>
-                </form>
+                <>
+                  <div className="mt-4 max-h-96 space-y-3 overflow-y-auto">
+                    {coachMessages.length === 0 && !coachLoading && (
+                      <div className="rounded-xl border border-border bg-background p-4">
+                        <p className="text-sm text-muted-foreground">
+                          Ciao! Sono il tuo Coach AI. Posso aiutarti con la dieta e l&apos;allenamento. Prova a chiedermi:
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {[
+                            "Cosa mi consigli per cena?",
+                            "Quante proteine mi mancano oggi?",
+                            "Allenamento per dimagrire a casa",
+                          ].map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => setCoachInput(s)}
+                              className="rounded-full border border-border bg-surface px-3 py-1 text-xs hover:border-lime"
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {coachMessages.map((m, i) => (
+                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`flex max-w-[85%] items-start gap-2 rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                            m.role === "user"
+                              ? "bg-lime text-lime-foreground"
+                              : "border border-lime/30 bg-lime/5 text-foreground"
+                          }`}
+                        >
+                          {m.role === "assistant" && <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-lime" />}
+                          <span className="whitespace-pre-wrap">{m.content}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {coachLoading && (
+                      <div className="flex justify-start">
+                        <div className="inline-flex items-center gap-2 rounded-2xl border border-lime/30 bg-lime/5 px-4 py-2.5 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin text-lime" /> Il coach sta scrivendo...
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <form onSubmit={askCoach} className="mt-4 flex gap-2">
+                    <input
+                      type="text"
+                      value={coachInput}
+                      onChange={(e) => setCoachInput(e.target.value)}
+                      placeholder="Scrivi un messaggio al coach..."
+                      maxLength={500}
+                      className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none focus:ring-1 focus:ring-lime"
+                    />
+                    <button
+                      type="submit"
+                      disabled={coachLoading || !coachInput.trim()}
+                      className="rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90 disabled:opacity-50"
+                    >
+                      {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  </form>
+                </>
               ) : (
                 <button
                   onClick={() => handleUpgrade("pro")}
@@ -329,14 +448,6 @@ function AppPage() {
                 </button>
               )}
 
-              {coachReply && (
-                <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4">
-                  <div className="flex items-start gap-2">
-                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-lime" />
-                    <p className="text-sm leading-relaxed">{coachReply}</p>
-                  </div>
-                </div>
-              )}
               {coachError === "UPGRADE_REQUIRED" && (
                 <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4 text-center">
                   <Lock className="mx-auto h-6 w-6 text-lime" />
