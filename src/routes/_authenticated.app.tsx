@@ -356,9 +356,8 @@ function AppPage() {
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-lime" />
                   <h2 className="font-display text-lg font-bold">Coach AI</h2>
-                  {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
                 </div>
-                {isPro && coachMessages.length > 0 && (
+                {coachMessages.length > 0 && (
                   <button
                     onClick={() => { setCoachMessages([]); setCoachError(null); }}
                     className="text-xs text-muted-foreground hover:text-foreground"
@@ -368,13 +367,10 @@ function AppPage() {
                 )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isPro
-                  ? "Chiedi quello che vuoi su dieta, nutrizione e sport. Il coach conosce i tuoi dati di oggi."
-                  : "Il tuo coach personale di dieta e sport — incluso nel piano Pro."}
+                Chiedi quello che vuoi su dieta, nutrizione e sport. Il coach conosce i tuoi dati di oggi.
               </p>
 
-              {isPro ? (
-                <>
+              <>
                   <div className="mt-4 max-h-96 space-y-3 overflow-y-auto">
                     {coachMessages.length === 0 && !coachLoading && (
                       <div className="rounded-xl border border-border bg-background p-4">
@@ -439,14 +435,6 @@ function AppPage() {
                     </button>
                   </form>
                 </>
-              ) : (
-                <button
-                  onClick={() => handleUpgrade("pro")}
-                  className="mt-4 rounded-lg bg-lime px-5 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90"
-                >
-                  Passa a Pro · €9.99/mese
-                </button>
-              )}
 
               {coachError === "UPGRADE_REQUIRED" && (
                 <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4 text-center">

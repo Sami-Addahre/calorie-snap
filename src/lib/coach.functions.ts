@@ -111,11 +111,6 @@ export const getCoachAdvice = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .single();
 
-    const piano = profile?.piano ?? "free";
-    if (piano !== "pro" && piano !== "ristorante") {
-      throw new Error("UPGRADE_REQUIRED");
-    }
-
     const targetKcal = profile?.target_kcal ?? 2000;
     const targetMl = profile?.target_ml ?? 2000;
 
