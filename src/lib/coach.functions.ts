@@ -67,7 +67,7 @@ export const setObiettivi = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const patch: Record<string, number> = {};
+    const patch: { target_kcal?: number; target_ml?: number } = {};
     if (data.target_kcal) patch.target_kcal = data.target_kcal;
     if (data.target_ml) patch.target_ml = data.target_ml;
     if (Object.keys(patch).length === 0) return { ok: true };
