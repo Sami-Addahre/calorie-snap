@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Upload, Loader2, ChevronRight, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame } from "lucide-react";
+import { Camera, Upload, Loader as Loader2, ChevronRight, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "@/lib/analisi.functions";
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
-import { getCoachOggi, aggiungiIdratazione } from "@/lib/coach.functions";
+import { getCoachOggi, aggiungiIdratazione, getCoachAdvice } from "@/lib/coach.functions";
 import { ShareDialog } from "@/components/share-dialog";
 import { MealPicker, type Pasto } from "@/components/meal-picker";
 import { ProgressRing } from "@/components/progress-ring";
@@ -32,6 +32,10 @@ function AppPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showShare, setShowShare] = useState(false);
+  const [coachInput, setCoachInput] = useState("");
+  const [coachReply, setCoachReply] = useState<string | null>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachError, setCoachError] = useState<string | null>(null);
 
   const qc = useQueryClient();
   const fetchAnalizza = useServerFn(analizzaImmagine);
@@ -42,6 +46,7 @@ function AppPage() {
   const fetchSalva = useServerFn(salvaAnalisi);
   const fetchCoach = useServerFn(getCoachOggi);
   const fetchIdr = useServerFn(aggiungiIdratazione);
+  const fetchAdvice = useServerFn(getCoachAdvice);
 
   const subQuery = useQuery({
     queryKey: ["subscription"],
@@ -144,7 +149,33 @@ function AppPage() {
     qc.invalidateQueries({ queryKey: ["coach-oggi"] });
   };
 
+  const askCoach = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coachInput.trim()) return;
+    setCoachLoading(true);
+    setCoachError(null);
+    setCoachReply(null);
+    try {
+      const res = await fetchAdvice({ data: { domanda: coachInput.trim() } });
+      setCoachReply(res.advice);
+    } catch (err: any) {
+      const msg = err?.message || "Errore dal coach";
+      if (msg.includes("UPGRADE_REQUIRED")) {
+        setCoachError("UPGRADE_REQUIRED");
+      } else {
+        setCoachError(msg);
+      }
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
   const coach = coachQuery.data;
+  const isPro = (coach?.piano ?? piano) !== "free";
+  const tokensUsed = coach?.tokensUsed ?? 0;
+  const tokensLimit = coach?.tokensLimit ?? 5;
+  const tokensRemaining = tokensLimit === -1 ? -1 : Math.max(0, tokensLimit - tokensUsed);
+  const canAnalyze = isPro || tokensRemaining > 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -173,16 +204,23 @@ function AppPage() {
         </div>
       </header>
 
+      {/* Token + piano bar */}
       <div className="border-b border-border bg-surface/40">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-2 text-xs">
-          <div className="flex items-center gap-1.5">
-            <Crown className={`h-3.5 w-3.5 ${piano !== "free" ? "text-lime" : "text-muted-foreground"}`} />
+          <div className="flex items-center gap-2">
+            <Crown className={`h-3.5 w-3.5 ${isPro ? "text-lime" : "text-muted-foreground"}`} />
             <span className="text-muted-foreground">Piano:</span>
-            <span className="font-semibold uppercase tracking-wide">{piano}</span>
+            <span className="font-semibold uppercase tracking-wide">{isPro ? "Pro" : "Free"}</span>
+            {!isPro && (
+              <span className="flex items-center gap-1 rounded-full border border-lime/40 bg-lime/10 px-2 py-0.5 font-semibold text-lime">
+                <Sparkles className="h-3 w-3" />
+                {tokensRemaining}/{tokensLimit} token
+              </span>
+            )}
           </div>
-          {piano === "free" ? (
+          {!isPro ? (
             <button onClick={() => handleUpgrade("pro")} className="font-semibold text-lime hover:underline">
-              Passa a Pro · €9.99/mese →
+              Passa a Pro · illimitato →
             </button>
           ) : (
             <button onClick={openPortal} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
@@ -194,18 +232,16 @@ function AppPage() {
 
       <main className="mx-auto max-w-3xl px-4 py-8">
         {!showHistory ? (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Coach rings */}
             <section className="rounded-2xl border border-border bg-surface p-6">
-              <div className="flex items-center gap-2">
-                <h1 className="font-display text-xl font-bold">Coach AI · Oggi</h1>
-              </div>
+              <h1 className="font-display text-xl font-bold">Coach AI · Oggi</h1>
               <div className="mt-6 grid grid-cols-2 gap-6">
                 <div className="flex flex-col items-center">
                   <ProgressRing
                     value={coach?.kcal_oggi ?? 0}
                     max={coach?.target_kcal ?? 2000}
-                    color="#a3e635"
+                    color="#c8f04d"
                     label="Calorie"
                     unit="kcal"
                   />
@@ -253,11 +289,111 @@ function AppPage() {
               )}
             </section>
 
+            {/* Coach AI chat — Pro only */}
+            <section className="rounded-2xl border border-border bg-surface p-6">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-lime" />
+                <h2 className="font-display text-lg font-bold">Chiedi al Coach AI</h2>
+                {!isPro && <Lock className="h-4 w-4 text-muted-foreground" />}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {isPro
+                  ? "Fai una domanda nutrizionale e il coach ti risponde basandosi sui tuoi dati di oggi."
+                  : "Consigli personalizzati dal coach AI — incluso nel piano Pro."}
+              </p>
+
+              {isPro ? (
+                <form onSubmit={askCoach} className="mt-4 flex gap-2">
+                  <input
+                    type="text"
+                    value={coachInput}
+                    onChange={(e) => setCoachInput(e.target.value)}
+                    placeholder="es. Cosa dovrei mangiare a cena?"
+                    maxLength={300}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none focus:ring-1 focus:ring-lime"
+                  />
+                  <button
+                    type="submit"
+                    disabled={coachLoading || !coachInput.trim()}
+                    className="rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90 disabled:opacity-50"
+                  >
+                    {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => handleUpgrade("pro")}
+                  className="mt-4 rounded-lg bg-lime px-5 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90"
+                >
+                  Passa a Pro · €9.99/mese
+                </button>
+              )}
+
+              {coachReply && (
+                <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-lime" />
+                    <p className="text-sm leading-relaxed">{coachReply}</p>
+                  </div>
+                </div>
+              )}
+              {coachError === "UPGRADE_REQUIRED" && (
+                <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4 text-center">
+                  <Lock className="mx-auto h-6 w-6 text-lime" />
+                  <p className="mt-2 text-sm text-muted-foreground">Il Coach AI è disponibile solo con il piano Pro.</p>
+                  <button
+                    onClick={() => handleUpgrade("pro")}
+                    className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90"
+                  >
+                    Passa a Pro
+                  </button>
+                </div>
+              )}
+              {coachError && coachError !== "UPGRADE_REQUIRED" && (
+                <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-foreground">
+                  {coachError}
+                </div>
+              )}
+            </section>
+
+            {/* Token warning for free users */}
+            {!isPro && (
+              <div className="rounded-2xl border border-lime/30 bg-lime/5 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-lime/20">
+                    <Sparkles className="h-5 w-5 text-lime" />
+                  </div>
+                  <div>
+                    <p className="font-display font-semibold">
+                      {tokensRemaining > 0
+                        ? `Hai ${tokensRemaining} token rimanenti oggi`
+                        : "Token esauriti per oggi"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {tokensRemaining > 0
+                        ? "Ogni analisi consuma 1 token. Si resetta a mezzanotte."
+                        : "Con Pro hai token illimitati e il Coach AI personale."}
+                    </p>
+                  </div>
+                </div>
+                {tokensRemaining === 0 && (
+                  <button
+                    onClick={() => handleUpgrade("pro")}
+                    className="mt-4 w-full rounded-lg bg-lime py-2.5 text-center text-sm font-semibold text-lime-foreground hover:bg-lime/90"
+                  >
+                    Passa a Pro · token illimitati + Coach AI
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Upload */}
             <div
               onDrop={onDrop}
               onDragOver={(e) => e.preventDefault()}
-              className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface p-10 text-center hover:border-lime"
+              className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-surface p-10 text-center transition-colors ${
+                canAnalyze ? "border-border hover:border-lime" : "border-muted cursor-not-allowed opacity-60"
+              }`}
             >
               <input
                 type="file"
@@ -269,6 +405,7 @@ function AppPage() {
                   if (file) startUpload(file);
                 }}
                 className="absolute inset-0 cursor-pointer opacity-0"
+                disabled={!canAnalyze}
               />
               {preview ? (
                 <img src={preview} alt="Anteprima del pasto" className="mb-4 max-h-64 rounded-xl object-cover" />
@@ -277,9 +414,13 @@ function AppPage() {
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                     <Upload className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                   </div>
-                  <h2 className="font-display text-xl font-semibold">Aggiungi un pasto</h2>
+                  <h2 className="font-display text-xl font-semibold">
+                    {canAnalyze ? "Aggiungi un pasto" : "Token esauriti"}
+                  </h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Trascina una foto o clicca per scegliere. Ti chiediamo che pasto stai facendo.
+                    {canAnalyze
+                      ? "Trascina una foto o clicca per scegliere. Ti chiediamo che pasto stai facendo."
+                      : "Passa a Pro per analisi illimitate."}
                   </p>
                 </>
               )}
