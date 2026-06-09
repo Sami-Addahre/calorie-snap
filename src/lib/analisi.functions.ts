@@ -156,7 +156,7 @@ export const getStorico = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data, error } = await supabase
       .from("analisi")
-      .select("id, risultato_json, created_at")
+      .select("id, risultato_json, created_at, pasto, kcal")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
