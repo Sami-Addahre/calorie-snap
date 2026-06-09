@@ -191,7 +191,7 @@ function ProvaPage() {
               capture="environment"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) handleFile(file);
+                if (file) startUpload(file);
               }}
               className="absolute inset-0 cursor-pointer opacity-0"
               disabled={loading}
