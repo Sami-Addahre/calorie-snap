@@ -3,6 +3,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, Upload, Loader2, ArrowLeft, Sparkles, Lock } from "lucide-react";
 import { analizzaImmagineDemo, getGuestUsage as getGuestUsageFn, type AnalisiResult } from "@/lib/analisi.functions";
+import { ShareDialog } from "@/components/share-dialog";
+import { MealPicker, type Pasto } from "@/components/meal-picker";
 
 export const Route = createFileRoute("/prova")({
   head: () => ({
@@ -17,6 +19,7 @@ export const Route = createFileRoute("/prova")({
 });
 
 const PENDING_KEY = "kcalai_pending_analisi";
+const PENDING_PASTO_KEY = "kcalai_pending_pasto";
 
 function msUntilLocalMidnight(): number {
   const now = new Date();
