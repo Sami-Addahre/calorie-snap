@@ -31,8 +31,11 @@ class GuestLimitError extends Error {
   }
 }
 
+const PastoEnum = z.enum(["colazione", "pranzo", "cena", "spuntino"]).optional();
+
 const AnalizzaInput = z.object({
   imageBase64: z.string().min(1),
+  pasto: PastoEnum,
 });
 
 const AnalisiResultSchema = z.object({
@@ -139,6 +142,9 @@ nome_piatto, calorie, proteine_g, carboidrati_g, grassi_g, fibre_g, zuccheri_g, 
       user_id: userId,
       immagine_url: "",
       risultato_json: parsed,
+      pasto: data.pasto ?? null,
+      kcal: parsed.calorie,
+      consumed_at: today,
     });
 
     return parsed;
@@ -163,14 +169,18 @@ export const getStorico = createServerFn({ method: "GET" })
 export const salvaAnalisi = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ risultato: AnalisiResultSchema }).parse(input)
+    z.object({ risultato: AnalisiResultSchema, pasto: PastoEnum }).parse(input)
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const today = new Date().toISOString().split("T")[0];
     const { error } = await supabase.from("analisi").insert({
       user_id: userId,
       immagine_url: "",
       risultato_json: data.risultato,
+      pasto: data.pasto ?? null,
+      kcal: data.risultato.calorie,
+      consumed_at: today,
     });
     if (error) throw new Error("Impossibile salvare l'analisi");
     return { ok: true };
