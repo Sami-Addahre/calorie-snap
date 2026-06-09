@@ -287,6 +287,12 @@ function ProvaPage() {
           </div>
         )}
       </main>
+
+      {pendingFile && (
+        <MealPicker onPick={runAnalysis} onCancel={() => setPendingFile(null)} />
+      )}
+      <ShareDialog open={showShare} onClose={() => setShowShare(false)} />
     </div>
   );
 }
+
