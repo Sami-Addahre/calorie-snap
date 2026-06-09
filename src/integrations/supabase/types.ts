@@ -16,23 +16,32 @@ export type Database = {
     Tables: {
       analisi: {
         Row: {
+          consumed_at: string
           created_at: string
           id: string
           immagine_url: string | null
+          kcal: number | null
+          pasto: string | null
           risultato_json: Json
           user_id: string
         }
         Insert: {
+          consumed_at?: string
           created_at?: string
           id?: string
           immagine_url?: string | null
+          kcal?: number | null
+          pasto?: string | null
           risultato_json?: Json
           user_id: string
         }
         Update: {
+          consumed_at?: string
           created_at?: string
           id?: string
           immagine_url?: string | null
+          kcal?: number | null
+          pasto?: string | null
           risultato_json?: Json
           user_id?: string
         }
@@ -59,6 +68,30 @@ export type Database = {
         }
         Relationships: []
       }
+      idratazione: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          ml: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          id?: string
+          ml: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          ml?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           analisi_oggi: number
@@ -69,6 +102,8 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_product_id: string | null
           subscription_end: string | null
+          target_kcal: number
+          target_ml: number
           user_id: string
         }
         Insert: {
@@ -80,6 +115,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_product_id?: string | null
           subscription_end?: string | null
+          target_kcal?: number
+          target_ml?: number
           user_id: string
         }
         Update: {
@@ -91,6 +128,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_product_id?: string | null
           subscription_end?: string | null
+          target_kcal?: number
+          target_ml?: number
           user_id?: string
         }
         Relationships: []
