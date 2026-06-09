@@ -3,6 +3,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, Upload, Loader2, ArrowLeft, Sparkles, Lock } from "lucide-react";
 import { analizzaImmagineDemo, getGuestUsage as getGuestUsageFn, type AnalisiResult } from "@/lib/analisi.functions";
+import { ShareDialog } from "@/components/share-dialog";
+import { MealPicker, type Pasto } from "@/components/meal-picker";
 
 export const Route = createFileRoute("/prova")({
   head: () => ({
@@ -17,6 +19,7 @@ export const Route = createFileRoute("/prova")({
 });
 
 const PENDING_KEY = "kcalai_pending_analisi";
+const PENDING_PASTO_KEY = "kcalai_pending_pasto";
 
 function msUntilLocalMidnight(): number {
   const now = new Date();
@@ -31,6 +34,8 @@ function ProvaPage() {
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [newDay, setNewDay] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showShare, setShowShare] = useState(false);
   const midnightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAnalizza = useServerFn(analizzaImmagineDemo);
@@ -46,7 +51,6 @@ function ProvaPage() {
     }
   }, [fetchUsage]);
 
-  // Initial usage + schedule midnight reset
   useEffect(() => {
     refreshUsage();
     const schedule = () => {
@@ -59,81 +63,78 @@ function ProvaPage() {
       }, msUntilLocalMidnight());
     };
     schedule();
-    return () => {
-      if (midnightTimer.current) clearTimeout(midnightTimer.current);
-    };
+    return () => { if (midnightTimer.current) clearTimeout(midnightTimer.current); };
   }, [refreshUsage]);
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      setError(null);
-      setResult(null);
-      setNewDay(false);
+  const startUpload = useCallback((file: File) => {
+    setError(null);
+    setResult(null);
+    setNewDay(false);
+    if (usage && usage.remaining <= 0) {
+      setError(`Hai usato le ${usage.limit} analisi gratuite di oggi. Si resetta a mezzanotte — oppure registrati gratis per continuare subito e salvare lo storico.`);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Immagine troppo grande (max 10MB).");
+      return;
+    }
+    setPendingFile(file);
+  }, [usage]);
 
-      if (usage && usage.remaining <= 0) {
-        setError(
-          `Hai usato le ${usage.limit} analisi gratuite di oggi. Si resetta a mezzanotte — oppure registrati gratis per continuare subito e salvare lo storico.`
-        );
-        return;
-      }
+  const runAnalysis = useCallback(async (pasto: Pasto) => {
+    const file = pendingFile;
+    if (!file) return;
+    setPendingFile(null);
+    setLoading(true);
 
-      if (file.size > 10 * 1024 * 1024) {
-        setError("Immagine troppo grande (max 10MB).");
-        return;
-      }
-
-      setLoading(true);
-
-      const reader = new FileReader();
-      reader.onerror = () => {
-        setError("Impossibile leggere il file. Riprova.");
-        setLoading(false);
-      };
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        setPreview(reader.result as string);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setError("Impossibile leggere il file. Riprova.");
+      setLoading(false);
+    };
+    reader.onloadend = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+      setPreview(reader.result as string);
+      try {
+        const res = await fetchAnalizza({ data: { imageBase64: base64, pasto } });
+        const { _guest, ...analisi } = res as AnalisiResult & {
+          _guest?: { used: number; limit: number; remaining: number };
+        };
+        setResult(analisi);
+        if (_guest) setUsage(_guest); else refreshUsage();
         try {
-          const res = await fetchAnalizza({ data: { imageBase64: base64 } });
-          const { _guest, ...analisi } = res as AnalisiResult & {
-            _guest?: { used: number; limit: number; remaining: number };
-          };
-          setResult(analisi);
-          if (_guest) setUsage(_guest);
-          else refreshUsage();
-          try {
-            localStorage.setItem(PENDING_KEY, JSON.stringify(analisi));
-          } catch {}
-        } catch (err: any) {
-          const msg = err?.message || "Errore durante l'analisi. Riprova.";
-          setError(
-            msg.includes("limite") || msg.includes("GUEST_LIMIT")
-              ? `Hai raggiunto il limite gratuito di oggi. Si resetta a mezzanotte — o registrati gratis per continuare ora.`
-              : msg
-          );
-          refreshUsage();
-        } finally {
-          setLoading(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    },
-    [fetchAnalizza, refreshUsage, usage]
-  );
+          localStorage.setItem(PENDING_KEY, JSON.stringify(analisi));
+          localStorage.setItem(PENDING_PASTO_KEY, pasto);
+        } catch {}
+        setShowShare(true);
+      } catch (err: any) {
+        const msg = err?.message || "Errore durante l'analisi. Riprova.";
+        setError(
+          msg.includes("limite") || msg.includes("GUEST_LIMIT")
+            ? `Hai raggiunto il limite gratuito di oggi. Si resetta a mezzanotte — o registrati gratis per continuare ora.`
+            : msg
+        );
+        refreshUsage();
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, [pendingFile, fetchAnalizza, refreshUsage]);
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith("image/")) handleFile(file);
-    },
-    [handleFile]
-  );
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) startUpload(file);
+  }, [startUpload]);
 
   const reset = () => {
     setPreview(null);
     setResult(null);
     setError(null);
   };
+
+
 
 
   return (
@@ -190,7 +191,7 @@ function ProvaPage() {
               capture="environment"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) handleFile(file);
+                if (file) startUpload(file);
               }}
               className="absolute inset-0 cursor-pointer opacity-0"
               disabled={loading}
@@ -286,6 +287,12 @@ function ProvaPage() {
           </div>
         )}
       </main>
+
+      {pendingFile && (
+        <MealPicker onPick={runAnalysis} onCancel={() => setPendingFile(null)} />
+      )}
+      <ShareDialog open={showShare} onClose={() => setShowShare(false)} />
     </div>
   );
 }
+
