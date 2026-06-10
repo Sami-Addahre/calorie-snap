@@ -309,9 +309,9 @@ function Pricing() {
           </div>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
           {plans.map((plan) => (
-            <div key={plan.key} className={`relative rounded-2xl border p-6 ${plan.highlight ? "border-amber-500 bg-surface" : "border-border bg-surface"}`}>
+            <div key={plan.key} className={`relative flex min-w-0 flex-col rounded-2xl border p-6 ${plan.highlight ? "border-amber-500 bg-surface" : "border-border bg-surface"}`}>
               {plan.highlight && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-xs font-semibold text-amber-50">
                   Offerta Lampo
@@ -323,7 +323,7 @@ function Pricing() {
                 <span className="font-display text-4xl font-extrabold">{plan.price}</span>
                 <span className="text-sm text-muted-foreground">{plan.period}</span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{plan.desc}</p>
+              <p className="mt-2 text-sm text-muted-foreground break-words">{plan.desc}</p>
 
               <ul className="mt-6 space-y-3">
                 {plan.features.map((f) => (

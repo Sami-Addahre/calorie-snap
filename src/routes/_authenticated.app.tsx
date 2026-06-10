@@ -39,7 +39,11 @@ function AppPage() {
   const [coachMessages, setCoachMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [dailyAnalisi, setDailyAnalisi] = useState<Array<any>>([]);
+  const [calorieConsumate, setCalorieConsumate] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [dailyAnalisiLoading, setDailyAnalisiLoading] = useState(false);
 
   const qc = useQueryClient();
   const fetchAnalizza = useServerFn(analizzaImmagine);
@@ -63,12 +67,36 @@ function AppPage() {
   });
   const piano = subQuery.data?.piano ?? "free";
 
+  const selectedDateStr = selectedDate.toISOString().split("T")[0];
   const todayStr = new Date().toISOString().split("T")[0];
-  const isToday = selectedDate === todayStr;
+  const isToday = selectedDateStr === todayStr;
+
+  useEffect(() => {
+    let mounted = true;
+    setDailyAnalisiLoading(true);
+
+    fetchStorico({ data: { date: selectedDateStr } })
+      .then((res) => {
+        if (!mounted) return;
+        const list = (res?.storico ?? []) as Array<any>;
+        setDailyAnalisi(list);
+        setCalorieConsumate(list.reduce((acc, curr) => acc + Number(curr.kcal ?? curr.risultato_json?.calorie ?? 0), 0));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setDailyAnalisi([]);
+        setCalorieConsumate(0);
+      })
+      .finally(() => {
+        if (mounted) setDailyAnalisiLoading(false);
+      });
+
+    return () => { mounted = false; };
+  }, [selectedDate, refreshKey, fetchStorico]);
 
   const coachQuery = useQuery({
-    queryKey: ["coach-oggi", selectedDate],
-    queryFn: () => fetchCoach({ data: { date: selectedDate } }),
+    queryKey: ["coach-oggi", selectedDateStr],
+    queryFn: () => fetchCoach({ data: { date: selectedDateStr } }),
     staleTime: 10_000,
   });
 
@@ -109,8 +137,8 @@ function AppPage() {
   };
 
   const storicoQuery = useQuery({
-    queryKey: ["storico", selectedDate],
-    queryFn: () => fetchStorico({ data: { date: selectedDate } }),
+    queryKey: ["storico", selectedDateStr],
+    queryFn: () => fetchStorico({ data: { date: selectedDateStr } }),
     enabled: showHistory,
   });
 
@@ -150,6 +178,7 @@ function AppPage() {
         setResult(res);
         qc.invalidateQueries({ queryKey: ["coach-oggi"] });
         qc.invalidateQueries({ queryKey: ["storico"] });
+        setRefreshKey((current) => current + 1);
         setShowShare(true);
       } catch (err: any) {
         setError(err?.message || "Errore durante l'analisi");
@@ -175,12 +204,15 @@ function AppPage() {
     await fetchElimina({ data: { id } });
     qc.invalidateQueries({ queryKey: ["coach-oggi"] });
     qc.invalidateQueries({ queryKey: ["storico"] });
+    setRefreshKey((current) => current + 1);
   };
 
   const shiftDate = (deltaDays: number) => {
-    const d = new Date(selectedDate + "T00:00:00");
-    d.setDate(d.getDate() + deltaDays);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    setSelectedDate((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + deltaDays);
+      return d;
+    });
   };
 
   const askCoach = async (e: React.FormEvent) => {
@@ -220,13 +252,13 @@ function AppPage() {
 
   const exportCSV = async () => {
     try {
-      const res = await fetchExport({ data: { date: selectedDate } });
+      const res = await fetchExport({ data: { date: selectedDateStr } });
       if (res?.csv) {
         const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${t('export_filename')}_${selectedDate}.csv`;
+        a.download = `${t('export_filename')}_${selectedDateStr}.csv`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -329,7 +361,7 @@ function AppPage() {
                   </button>
                   <span className="inline-flex min-w-[7.5rem] items-center justify-center gap-1.5 px-2 text-sm font-semibold">
                     <CalendarDays className="h-3.5 w-3.5 text-lime" />
-                    {isToday ? "Oggi" : new Date(selectedDate + "T00:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                    {isToday ? "Oggi" : selectedDate.toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
                   </span>
                   <button
                     onClick={() => shiftDate(1)}
@@ -344,17 +376,17 @@ function AppPage() {
               <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                 <div className="flex flex-col items-center">
                   <ProgressRing
-                    value={coach?.kcal_oggi ?? 0}
+                    value={calorieConsumate}
                     max={coach?.target_kcal ?? 2000}
                     color="#c8f04d"
                     unit="kcal"
                     size={200}
                     stroke={16}
-                    centerLabel={String(Math.round(coach?.kcal_oggi ?? 0))}
+                    centerLabel={String(Math.round(calorieConsumate))}
                     centerSub="kcal consumati"
                   />
                   <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Flame className="h-3 w-3 text-lime" /> {coach?.analisi.length ?? 0} pasti registrati
+                    <Flame className="h-3 w-3 text-lime" /> {dailyAnalisi.length} pasti registrati
                   </p>
                 </div>
                 <div className="grid gap-4">
