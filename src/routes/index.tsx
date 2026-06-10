@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getStats } from "@/lib/coach.functions";
 import { getStorico } from "@/lib/analisi.functions";
 import { LaunchBanner } from "@/components/launch-banner";
+import { useTranslation } from 'react-i18next';
 import { ReviewsMarquee } from "@/components/reviews-marquee";
 
 export const Route = createFileRoute("/")({
@@ -120,7 +121,7 @@ function useLiveAnalisiCount() {
 }
 
 function Hero() {
-  const count = useLiveAnalisiCount();
+  const { t } = useTranslation();
   return (
     <section className="relative overflow-hidden px-4 pt-16 pb-12 sm:pt-24">
       <div className="mx-auto max-w-6xl text-center">
@@ -145,14 +146,11 @@ function Hero() {
           </a>
         </div>
 
-        {count !== null && (
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-lime/40 bg-lime/10 px-4 py-1.5 text-sm">
-            <TrendingUp className="h-4 w-4 text-lime" />
-            <span className="font-bold tabular-nums">{count.toLocaleString("it-IT")}</span>
-            <span className="text-muted-foreground">analisi già effettuate</span>
-            <span className="ml-1 h-2 w-2 animate-pulse rounded-full bg-lime" />
-          </div>
-        )}
+        <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-lime/40 bg-lime/10 px-4 py-1.5 text-sm">
+          <TrendingUp className="h-4 w-4 text-lime" />
+          <span className="font-bold tabular-nums">{t('home_social_proof')}</span>
+          <span className="ml-1 h-2 w-2 animate-pulse rounded-full bg-lime" />
+        </div>
       </div>
     </section>
   );

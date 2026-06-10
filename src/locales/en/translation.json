@@ -16,4 +16,13 @@
   "coach_title": "Coach AI",
   "ask_coach_placeholder": "Write a message to the coach...",
   "export_filename": "kcalai_diary"
+  ,
+  "home_social_proof": "🔥 Over 14,520 food analyses completed by the community today!",
+  "pricing_social_proof": "🔥 More than 600 users are already using kcalAI today!",
+  "plan_free": "Free",
+  "plan_promo": "Limited Offer",
+  "plan_smart": "Smart",
+  "cta_take_offer": "Take the offer",
+  "cta_choose": "Choose",
+  "cta_start_free": "Start free"
 }
