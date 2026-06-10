@@ -262,10 +262,39 @@ function HowItWorks() {
 }
 
 function Pricing() {
+  const { t } = useTranslation();
+
   const plans = [
-    { name: "Free", price: "€0", period: "/mese", desc: "Per iniziare a tracciare i pasti.", features: ["5 analisi foto al giorno", "Storico analisi", "Coach calorie & idratazione"], cta: "Inizia gratis", highlight: false },
-    { name: "Pro", price: "€9.99", period: "/mese", desc: "Analisi illimitate e ricette AI.", features: ["Analisi foto illimitate", "Ricerca ricette AI", "Video YouTube + nutrizione", "Coach completo"], cta: "Passa a Pro", highlight: true },
-    { name: "Ristorante", price: "€49", period: "/mese", desc: "Per ristoranti: schede nutrizionali.", features: ["Tutto di Pro", "Menu illimitato", "Schede nutrizionali", "Export PDF", "Supporto dedicato"], cta: "Passa a Ristorante", highlight: false },
+    {
+      key: "free",
+      name: "Free",
+      price: "€0",
+      period: "/mese",
+      desc: "Per iniziare a tracciare i pasti.",
+      features: ["5 analisi foto al giorno", "Storico base", "Coach calorie & idratazione"],
+      cta: "Inizia gratis",
+      highlight: false,
+    },
+    {
+      key: "promo",
+      name: t('plan_promo'),
+      price: "€1.49",
+      period: "/mese",
+      desc: "Offerta limitata solo per oggi.",
+      features: ["Analisi foto illimitate", "Ricerca ricette AI", "Prezzo promozionale bloccato", "Supporto premium"],
+      cta: t('cta_take_offer') || 'Offerta Lampo',
+      highlight: true,
+    },
+    {
+      key: "smart",
+      name: "Smart",
+      price: "€3.49",
+      period: "/mese",
+      desc: "Tracciamento avanzato e storico settimanale.",
+      features: ["Tracciamento avanzato", "Storico settimanale", "Esportazione dati CSV"],
+      cta: `${t('cta_choose') || 'Scegli'} Smart`,
+      highlight: false,
+    },
   ];
 
   return (
@@ -274,21 +303,28 @@ function Pricing() {
         <div className="text-center">
           <h2 className="font-display text-3xl font-bold sm:text-4xl">Scegli il tuo piano</h2>
           <p className="mt-3 text-muted-foreground">Annulla quando vuoi · Nessun contratto · Supporto incluso.</p>
+
+          <div className="mt-4 inline-flex items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium">
+            <span className="font-semibold">{t('pricing_social_proof')}</span>
+          </div>
         </div>
+
         <div className="mt-12 grid gap-6 sm:grid-cols-3">
           {plans.map((plan) => (
-            <div key={plan.name} className={`relative rounded-2xl border p-6 ${plan.highlight ? "border-lime bg-surface" : "border-border bg-surface"}`}>
+            <div key={plan.key} className={`relative rounded-2xl border p-6 ${plan.highlight ? "border-amber-500 bg-surface" : "border-border bg-surface"}`}>
               {plan.highlight && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-lime px-3 py-0.5 text-xs font-semibold text-lime-foreground">
-                  Più popolare
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-xs font-semibold text-amber-50">
+                  Offerta Lampo
                 </span>
               )}
+
               <h3 className="font-display text-lg font-semibold">{plan.name}</h3>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="font-display text-4xl font-extrabold">{plan.price}</span>
                 <span className="text-sm text-muted-foreground">{plan.period}</span>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{plan.desc}</p>
+
               <ul className="mt-6 space-y-3">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
@@ -297,29 +333,13 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/auth"
-                className={`mt-6 block w-full rounded-lg py-2.5 text-center text-sm font-semibold ${
-                  plan.highlight ? "bg-lime text-lime-foreground hover:bg-lime/90" : "border border-border bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                {plan.cta}
-              </Link>
 
-              {plan.name !== "Free" && (
-                <div className="mt-4 flex items-start gap-2 rounded-lg border border-lime/30 bg-lime/5 p-3 text-xs">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-lime" />
-                  <div>
-                    <p className="font-semibold">Soddisfatti o rimborsati 30 giorni</p>
-                    <p className="text-muted-foreground">Rimborso garantito senza domande.</p>
-                  </div>
-                </div>
-              )}
+              <a href={plan.key === 'free' ? '/auth' : `/auth?plan=${plan.key}`} className={`mt-6 block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-colors ${plan.highlight ? "bg-amber-500 text-amber-50 hover:brightness-95" : "border border-border bg-background text-foreground hover:bg-muted"}`}>
+                {plan.cta}
+              </a>
+
             </div>
           ))}
-        </div>
-        <div className="mt-6 text-center">
-          <Link to="/pricing" className="text-sm text-lime hover:underline">Vedi confronto completo →</Link>
         </div>
       </div>
     </section>
