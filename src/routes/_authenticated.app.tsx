@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "@/lib/analisi.functions";
+import { analizzaImmagine, getStorico, salvaAnalisi, exportWeeklyReport, type AnalisiResult } from "@/lib/analisi.functions";
+import { getCoachMessages, postCoachMessage } from "@/lib/coach_messages.functions";
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
 import { getCoachOggi, aggiungiIdratazione, getCoachAdvice, eliminaAnalisi } from "@/lib/coach.functions";
 import { ShareDialog } from "@/components/share-dialog";
@@ -41,6 +42,9 @@ function AppPage() {
   const qc = useQueryClient();
   const fetchAnalizza = useServerFn(analizzaImmagine);
   const fetchStorico = useServerFn(getStorico);
+  const fetchMessages = useServerFn(getCoachMessages);
+  const postMessage = useServerFn(postCoachMessage);
+  const fetchExport = useServerFn(exportWeeklyReport);
   const fetchCheck = useServerFn(checkSubscription);
   const fetchCheckout = useServerFn(createCheckout);
   const fetchPortal = useServerFn(customerPortal);
@@ -103,10 +107,21 @@ function AppPage() {
   };
 
   const storicoQuery = useQuery({
-    queryKey: ["storico"],
-    queryFn: () => fetchStorico(),
+    queryKey: ["storico", selectedDate],
+    queryFn: () => fetchStorico({ data: { date: selectedDate } }),
     enabled: showHistory,
   });
+
+  useEffect(() => {
+    // load persisted coach messages once
+    let mounted = true;
+    fetchMessages().then((res: any) => {
+      if (!mounted) return;
+      if (res?.messages) setCoachMessages(res.messages.map((m: any) => ({ role: m.role, content: m.content })));
+    }).catch(() => {});
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startUpload = useCallback((file: File) => {
     setError(null);
@@ -172,12 +187,23 @@ function AppPage() {
     if (!domanda || coachLoading) return;
     setCoachLoading(true);
     setCoachError(null);
-    const storia = coachMessages.slice(-10);
-    setCoachMessages((prev) => [...prev, { role: "user", content: domanda }]);
+    // persist user message
+    try {
+      await postMessage({ data: { role: "user", content: domanda } });
+    } catch (err) {
+      // ignore persistence errors client-side
+    }
     setCoachInput("");
     try {
+      // build storia from persisted messages + current
+      const persisted = coachMessages.slice(-40);
+      const storia = [...persisted, { role: "user", content: domanda }].slice(-12).map((m) => ({ role: m.role, content: m.content }));
       const res = await fetchAdvice({ data: { domanda, storia } });
-      setCoachMessages((prev) => [...prev, { role: "assistant", content: res.advice }]);
+      // persist assistant reply
+      try { await postMessage({ data: { role: "assistant", content: res.advice } }); } catch {}
+      // refresh local messages from server
+      const mres = await fetchMessages();
+      if (mres?.messages) setCoachMessages(mres.messages.map((m: any) => ({ role: m.role, content: m.content })));
     } catch (err: any) {
       const msg = err?.message || "Errore dal coach";
       if (msg.includes("UPGRADE_REQUIRED")) {
@@ -190,7 +216,35 @@ function AppPage() {
     }
   };
 
+  const exportCSV = async () => {
+    try {
+      const res = await fetchExport({ data: { date: selectedDate } });
+      if (res?.csv) {
+        const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `kcalai_diario_${selectedDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Export failed', err);
+    }
+  };
+
   const coach = coachQuery.data;
+  const suggestion = (() => {
+    if (!coach) return "Apri il coach per consigli personalizzati.";
+    const protDef = (coach?.target_proteine_g ?? 150) - (coach?.proteine_oggi ?? 0);
+    const waterDef = (coach?.target_ml ?? 2000) - (coach?.ml_oggi ?? 0);
+    if (protDef > 20) return "Oggi sei basso di proteine: prova uno spuntino con yogurt greco.";
+    if (waterDef > 300) return "Hai bisogno di bere ancora: prova 250 ml d'acqua ora.";
+    if ((coach?.kcal_oggi ?? 0) < (coach?.target_kcal ?? 2000) - 200) return "Hai ancora calorie disponibili: considera uno spuntino sano.";
+    return "Ottimo lavoro — sei in linea con i tuoi obiettivi oggi!";
+  })();
   const isPro = (coach?.piano ?? piano) !== "free";
   const tokensUsed = coach?.tokensUsed ?? 0;
   const tokensLimit = coach?.tokensLimit ?? 5;
@@ -206,6 +260,12 @@ function AppPage() {
               <Camera className="h-4 w-4 text-lime-foreground" />
             </div>
             <span className="font-display text-lg font-bold tracking-tight">kcalAI</span>
+            <span className="ml-3 inline-flex items-center rounded-full bg-emerald-600/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+              Oltre 14.520 analisi effettuate oggi dalla community!
+            </span>
+            <span className="ml-3 inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Flame className="h-4 w-4 text-amber-400" /> {coach?.streak ?? 0}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/ricette" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
@@ -317,6 +377,11 @@ function AppPage() {
                 <MacroRing label="Proteine" value={coach?.proteine_oggi ?? 0} max={coach?.target_proteine_g ?? 150} color="#f87171" />
                 <MacroRing label="Carbo" value={coach?.carbo_oggi ?? 0} max={coach?.target_carbo_g ?? 250} color="#fbbf24" />
                 <MacroRing label="Grassi" value={coach?.grassi_oggi ?? 0} max={coach?.target_grassi_g ?? 60} color="#a78bfa" />
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-border bg-background p-4">
+                <p className="text-sm font-semibold">I consigli del tuo Coach per oggi</p>
+                <p className="mt-2 text-sm text-muted-foreground">{suggestion}</p>
               </div>
 
               {/* Idratazione */}
@@ -599,7 +664,14 @@ function AppPage() {
             <button onClick={() => setShowHistory(false)} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               <ChevronRight className="h-4 w-4 rotate-180" /> Torna al coach
             </button>
-            <h2 className="font-display text-2xl font-bold">Storico analisi</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-2xl font-bold">Storico analisi</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={exportCSV} className="rounded-md border border-border bg-surface px-3 py-1 text-sm hover:bg-muted">
+                  Esporta Diario Alimentare (CSV)
+                </button>
+              </div>
+            </div>
             {storicoQuery.isLoading ? (
               <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Caricamento...

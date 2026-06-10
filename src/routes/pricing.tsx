@@ -9,7 +9,7 @@ export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Prezzi — kcalAI" },
-      { name: "description", content: "Piani trasparenti per kcalAI: Free, Pro a €9.99/mese, Ristorante a €49/mese. Annulla quando vuoi, nessun contratto, supporto incluso." },
+      { name: "description", content: "Piani: Free, Medium €3.49/mese, Pro €9.99/mese. Annulla quando vuoi." },
       { property: "og:title", content: "Prezzi kcalAI — Annulla quando vuoi" },
       { property: "og:description", content: "Annulla quando vuoi · Nessun contratto · Supporto email incluso · Rimborso 30 giorni." },
       { property: "og:url", content: "https://kcalvison.lovable.app/pricing" },
@@ -31,16 +31,16 @@ function PricingPage() {
       cta: "Inizia gratis", highlight: false,
     },
     {
-      name: "Pro", price: "€9.99", period: "/mese",
-      desc: "Analisi illimitate e ricerca ricette AI.",
-      features: ["Analisi foto illimitate", "Ricerca ricette AI", "Video YouTube + nutrizione", "Coach completo"],
-      cta: "Passa a Pro", highlight: true,
+      name: "Medium", price: "€3.49", period: "/mese",
+      desc: "Ideale per chi inizia, tracciamento base.",
+      features: ["Tracciamento base", "Storico settimanale", "Esportazioni CSV"],
+      cta: "Scegli Medium", highlight: false,
     },
     {
-      name: "Ristorante", price: "€49", period: "/mese",
-      desc: "Per ristoranti: schede nutrizionali del menu.",
-      features: ["Tutto di Pro", "Menu illimitato", "Schede nutrizionali", "Export PDF", "Supporto dedicato"],
-      cta: "Passa a Ristorante", highlight: false,
+      name: "Pro", price: "€9.99", period: "/mese",
+      desc: "Il più venduto: Coach AI illimitato, analisi avanzate.",
+      features: ["Analisi foto illimitate", "Coach AI illimitato", "Report PDF/CSV", "Priorità supporto"],
+      cta: "Passa a Pro", highlight: true,
     },
   ];
 

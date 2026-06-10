@@ -152,17 +152,68 @@ nome_piatto, calorie, proteine_g, carboidrati_g, grassi_g, fibre_g, zuccheri_g, 
 
 export const getStorico = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((i: unknown) => z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).parse(i ?? {}))
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data, error } = await supabase
+    const date = data?.date as string | undefined;
+    let q = supabase
       .from("analisi")
       .select("id, risultato_json, created_at, pasto, kcal")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(200);
+    if (date) q = q.eq("consumed_at", date as string);
+    const { data: rows, error } = await q;
 
     if (error) throw error;
-    return { storico: data ?? [] };
+    return { storico: rows ?? [] };
+  });
+
+export const exportWeeklyReport = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).parse(i ?? {}))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const end = data?.date ?? new Date().toISOString().split("T")[0];
+    const endDate = new Date(end + "T00:00:00");
+    const days: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(endDate);
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().split("T")[0]);
+    }
+
+    // fetch analisi and idratazione for these days
+    const [{ data: analisiRows }, { data: idrRows }] = await Promise.all([
+      supabase
+        .from("analisi")
+        .select("consumed_at, kcal, risultato_json, pasto, created_at")
+        .eq("user_id", userId)
+        .in("consumed_at", days),
+      supabase
+        .from("idratazione")
+        .select("data, ml, created_at")
+        .eq("user_id", userId)
+        .in("data", days),
+    ]);
+
+    // build CSV
+    const header = ["date","type","pasto","kcal","proteine_g","carboidrati_g","grassi_g","ml"].join(",");
+    const lines: string[] = [header];
+    for (const d of days) {
+      const items = (analisiRows ?? []).filter((r: any) => r.consumed_at === d);
+      for (const it of items) {
+        const r: any = it.risultato_json ?? {};
+        lines.push([d, "analisi", it.pasto ?? "", String(it.kcal ?? r.calorie ?? ""), String(r.proteine_g ?? ""), String(r.carboidrati_g ?? ""), String(r.grassi_g ?? ""), ""].join(","));
+      }
+      const waters = (idrRows ?? []).filter((w: any) => w.data === d);
+      for (const w of waters) {
+        lines.push([d, "idratazione", "", "", "", "", "", String(w.ml ?? "")].join(","));
+      }
+    }
+
+    const csv = lines.join("\n");
+    return { csv };
   });
 
 // Salva un risultato dalla demo nello storico utente dopo registrazione/login

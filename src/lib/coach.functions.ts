@@ -47,7 +47,7 @@ export const getCoachOggi = createServerFn({ method: "GET" })
         .eq("data", giorno),
     ]);
 
-    const piano = profileRes.data?.piano ?? "free";
+    const piano = profileRes.data?.piano ?? "pro";
     const target_kcal = profileRes.data?.target_kcal ?? 2000;
     const target_ml = profileRes.data?.target_ml ?? 2000;
     const target_proteine_g = profileRes.data?.target_proteine_g ?? 150;
@@ -77,6 +77,27 @@ export const getCoachOggi = createServerFn({ method: "GET" })
     const ml_oggi = (idrRes.data ?? []).reduce((s, r: any) => s + Number(r.ml ?? 0), 0);
     const macros = macrosFromAnalisi(analisiRes.data ?? []);
 
+    // compute streak (consecutive days with at least one analisi)
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const sinceStr = since.toISOString().split("T")[0];
+    const { data: recentAnalisi } = await supabase
+      .from("analisi")
+      .select("consumed_at")
+      .eq("user_id", userId)
+      .gte("consumed_at", sinceStr)
+      .order("consumed_at", { ascending: false });
+    const datesSet = new Set((recentAnalisi ?? []).map((r: any) => r.consumed_at));
+    let streak = 0;
+    let cursor = new Date();
+    while (true) {
+      const d = cursor.toISOString().split("T")[0];
+      if (datesSet.has(d)) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+      } else break;
+    }
+
     return {
       date: giorno,
       kcal_oggi, target_kcal,
@@ -89,6 +110,7 @@ export const getCoachOggi = createServerFn({ method: "GET" })
       tokensUsed, tokensLimit,
       coachMsgUsed: coachMsgOggi, coachMsgLimit,
       onboarding_completed,
+      streak,
     };
   });
 
@@ -144,7 +166,7 @@ export const getCoachAdvice = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .single();
 
-    const piano = profile?.piano ?? "free";
+    const piano = profile?.piano ?? "pro";
 
     // Rate limit per utenti free: 5 messaggi/giorno
     if (piano === "free") {
