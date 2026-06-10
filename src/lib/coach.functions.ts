@@ -73,8 +73,8 @@ export const getCoachOggi = createServerFn({ method: "GET" })
       created_at: a.created_at,
       risultato_json: a.risultato_json,
     }));
-    const kcal_oggi = Math.round(analisi.reduce((s, a) => s + a.kcal, 0));
-    const ml_oggi = (idrRes.data ?? []).reduce((s, r: any) => s + (r.ml ?? 0), 0);
+    const kcal_oggi = Math.round(analisi.reduce((s, a) => s + Number(a.kcal ?? 0), 0));
+    const ml_oggi = (idrRes.data ?? []).reduce((s, r: any) => s + Number(r.ml ?? 0), 0);
     const macros = macrosFromAnalisi(analisiRes.data ?? []);
 
     return {

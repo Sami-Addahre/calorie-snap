@@ -279,18 +279,37 @@ function AppPage() {
                   </button>
                 </div>
               </div>
-              <div className="mt-6 flex flex-col items-center">
-                <ProgressRing
-                  value={coach?.kcal_oggi ?? 0}
-                  max={coach?.target_kcal ?? 2000}
-                  color="#c8f04d"
-                  unit="kcal"
-                  size={200}
-                  stroke={16}
-                />
-                <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <Flame className="h-3 w-3 text-lime" /> {coach?.analisi.length ?? 0} pasti registrati
-                </p>
+              <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="flex flex-col items-center">
+                  <ProgressRing
+                    value={coach?.kcal_oggi ?? 0}
+                    max={coach?.target_kcal ?? 2000}
+                    color="#c8f04d"
+                    unit="kcal"
+                    size={200}
+                    stroke={16}
+                    centerLabel={String(Math.round(coach?.kcal_oggi ?? 0))}
+                    centerSub="kcal consumati"
+                  />
+                  <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Flame className="h-3 w-3 text-lime" /> {coach?.analisi.length ?? 0} pasti registrati
+                  </p>
+                </div>
+                <div className="grid gap-4">
+                  <div className="rounded-2xl border border-border bg-background p-4">
+                    <ProgressRing
+                      value={coach?.ml_oggi ?? 0}
+                      max={coach?.target_ml ?? 2000}
+                      color="#38bdf8"
+                      unit="ml"
+                      size={140}
+                      stroke={12}
+                      centerLabel={String(Math.round(coach?.ml_oggi ?? 0))}
+                      centerSub="ml consumati"
+                      label="Idratazione"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* 3 cerchi macros */}
