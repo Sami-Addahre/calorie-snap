@@ -18,12 +18,14 @@ export const getCoachMessages = createServerFn({ method: "GET" })
 
 export const postCoachMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(2000) }).parse(i))
+  .inputValidator((i: unknown) => z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(2000), lang: z.string().min(2).max(10).optional() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // We accept an optional `lang` from client but don't require storing it in DB yet (migration may not have the column).
+    const payload: any = { user_id: userId, role: data.role, content: data.content };
     const { error } = await (supabase as any)
       .from("coach_messages")
-      .insert({ user_id: userId, role: data.role, content: data.content });
+      .insert(payload);
     if (error) throw error;
     return { ok: true };
   });

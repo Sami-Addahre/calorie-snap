@@ -1,0 +1,19 @@
+{
+  "go_home": "Go home",
+  "page_not_found": "Page not found",
+  "page_load_error": "This page didn't load",
+  "try_again": "Try again",
+  "kcalAI": "kcalAI",
+  "ricette": "Recipes",
+  "storico": "History",
+  "esporta_csv": "Export Food Diary (CSV)",
+  "piano": "Plan:",
+  "passa_a_pro": "Upgrade to Pro · unlimited →",
+  "esci": "Sign out",
+  "idratation": "Hydration",
+  "pasti_oggi": "Today's meals",
+  "nessun_pasto": "No meals recorded today.",
+  "coach_title": "Coach AI",
+  "ask_coach_placeholder": "Write a message to the coach...",
+  "export_filename": "kcalai_diary"
+}

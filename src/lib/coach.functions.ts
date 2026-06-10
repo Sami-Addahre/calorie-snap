@@ -153,6 +153,7 @@ export const getCoachAdvice = createServerFn({ method: "POST" })
           }))
           .max(12)
           .optional(),
+        lang: z.string().min(2).max(10).optional(),
       })
       .parse(i)
   )
@@ -227,7 +228,28 @@ export const getCoachAdvice = createServerFn({ method: "POST" })
       profile?.obiettivo && `Obiettivo: ${profile.obiettivo === "perdere" ? "perdere peso" : profile.obiettivo === "aumentare" ? "aumentare massa" : "mantenere"}`,
     ].filter(Boolean).join(" · ");
 
-    const systemPrompt = `Sei "Coach AI", un assistente personale italiano esperto di nutrizione, dieta e sport.
+    const lang = (data as any).lang ?? 'it';
+    const isEn = String(lang).toLowerCase().startsWith('en');
+
+    const systemPrompt = isEn
+      ? `You are "Coach AI", a friendly nutrition and fitness assistant.
+
+USER PROFILE: ${profiloUtente || "not available"}
+
+TODAY'S DATA:
+Meals recorded:
+${contestoPasti}
+Total calories: ${kcalTotali} kcal (target ${targetKcal} kcal)
+Total protein: ${proteineTotali} g (target ${targetProt} g)
+Hydration: ${mlTotali} ml (target ${targetMl} ml)
+
+RULES:
+- Always reply in English, in a friendly and motivating tone.
+- Be concise and practical (max 4-5 sentences), use real data when relevant.
+- For exercise give practical tips but don't replace medical advice.
+- If data is missing ask a clarifying question instead of guessing.
+- Do not provide medical diagnoses; recommend a professional when needed.`
+      : `Sei "Coach AI", un assistente personale italiano esperto di nutrizione, dieta e sport.
 
 PROFILO UTENTE: ${profiloUtente || "non disponibile"}
 

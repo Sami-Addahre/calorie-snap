@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
 import { analizzaImmagine, getStorico, salvaAnalisi, exportWeeklyReport, type AnalisiResult } from "@/lib/analisi.functions";
 import { getCoachMessages, postCoachMessage } from "@/lib/coach_messages.functions";
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_authenticated/app")({
 });
 
 function AppPage() {
+  const { t, i18n } = useTranslation();
   const [preview, setPreview] = useState<string | null>(null);
   const [result, setResult] = useState<AnalisiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -189,7 +191,7 @@ function AppPage() {
     setCoachError(null);
     // persist user message
     try {
-      await postMessage({ data: { role: "user", content: domanda } });
+      await postMessage({ data: { role: "user", content: domanda, lang: i18n.language } });
     } catch (err) {
       // ignore persistence errors client-side
     }
@@ -198,9 +200,9 @@ function AppPage() {
       // build storia from persisted messages + current
       const persisted = coachMessages.slice(-40);
       const storia = [...persisted, { role: "user", content: domanda }].slice(-12).map((m) => ({ role: m.role, content: m.content }));
-      const res = await fetchAdvice({ data: { domanda, storia } });
+      const res = await fetchAdvice({ data: { domanda, storia, lang: i18n.language } });
       // persist assistant reply
-      try { await postMessage({ data: { role: "assistant", content: res.advice } }); } catch {}
+      try { await postMessage({ data: { role: "assistant", content: res.advice, lang: i18n.language } }); } catch {}
       // refresh local messages from server
       const mres = await fetchMessages();
       if (mres?.messages) setCoachMessages(mres.messages.map((m: any) => ({ role: m.role, content: m.content })));
@@ -224,7 +226,7 @@ function AppPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `kcalai_diario_${selectedDate}.csv`;
+        a.download = `${t('export_filename')}_${selectedDate}.csv`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -259,7 +261,7 @@ function AppPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime">
               <Camera className="h-4 w-4 text-lime-foreground" />
             </div>
-            <span className="font-display text-lg font-bold tracking-tight">kcalAI</span>
+            <span className="font-display text-lg font-bold tracking-tight">{t('kcalAI')}</span>
             <span className="ml-3 inline-flex items-center rounded-full bg-emerald-600/10 px-3 py-1 text-xs font-semibold text-emerald-400">
               Oltre 14.520 analisi effettuate oggi dalla community!
             </span>
@@ -269,16 +271,16 @@ function AppPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link to="/ricette" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-              <BookOpen className="h-4 w-4" />Ricette
+              <BookOpen className="h-4 w-4" />{t('ricette')}
             </Link>
             <button onClick={() => setShowHistory(!showHistory)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-              <History className="h-4 w-4" />Storico
+              <History className="h-4 w-4" />{t('storico')}
             </button>
             <button
               onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
               className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted"
             >
-              <LogOut className="h-4 w-4" />Esci
+              <LogOut className="h-4 w-4" />{t('esci')}
             </button>
           </div>
         </div>

@@ -1,0 +1,19 @@
+{
+  "go_home": "Vai alla home",
+  "page_not_found": "Pagina non trovata",
+  "page_load_error": "Questa pagina non si è caricata",
+  "try_again": "Riprova",
+  "kcalAI": "kcalAI",
+  "ricette": "Ricette",
+  "storico": "Storico",
+  "esporta_csv": "Esporta Diario Alimentare (CSV)",
+  "piano": "Piano:",
+  "passa_a_pro": "Passa a Pro · illimitato →",
+  "esci": "Esci",
+  "idratation": "Idratazione",
+  "pasti_oggi": "Pasti di oggi",
+  "nessun_pasto": "Nessun pasto registrato oggi.",
+  "coach_title": "Coach AI",
+  "ask_coach_placeholder": "Scrivi un messaggio al coach...",
+  "export_filename": "kcalai_diario"
+}
