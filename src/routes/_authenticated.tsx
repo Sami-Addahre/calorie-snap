@@ -1,34 +1,59 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
+function AuthenticatedPending() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-surface px-8 py-10 text-center shadow-sm">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-lime border-t-transparent" role="status" />
+        <p className="text-sm font-medium text-foreground">Caricamento della tua sessione...</p>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  pendingComponent: AuthenticatedPending,
+  pendingMinMs: 100,
   beforeLoad: async ({ location }) => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
 
     const today = new Date().toISOString().split("T")[0];
-    
-    // Fallback: crea il profilo se non esiste (per utenti registrati prima del trigger)
-    await supabase
-      .from("profiles")
-      .insert({ user_id: data.user.id, reset_date: today, coach_reset_date: today })
-      .single()
-      .then(() => {}, () => {
-        // Ignora l'errore se la riga esiste già (UNIQUE constraint violation)
-      });
+    const userId = data.user.id;
 
-    // Onboarding gate: se non completato e non già su /onboarding, redirige
-    if (!location.pathname.startsWith("/onboarding")) {
-      const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .upsert(
+        { user_id: userId, reset_date: today, coach_reset_date: today },
+        { onConflict: "user_id" },
+      )
+      .select("onboarding_completed")
+      .maybeSingle();
+
+    if (profileError) {
+      console.warn("Unable to ensure profile row exists:", profileError);
+    }
+
+    let profileRow = profile;
+    if (!profileRow) {
+      const { data: fallbackProfile, error: fallbackError } = await supabase
         .from("profiles")
         .select("onboarding_completed")
-        .eq("user_id", data.user.id)
+        .eq("user_id", userId)
         .maybeSingle();
-      if (!profile?.onboarding_completed) {
-        throw redirect({ to: "/onboarding" });
+
+      if (fallbackError) {
+        console.warn("Unable to read profile after fallback upsert:", fallbackError);
       }
+      profileRow = fallbackProfile;
     }
+
+    if (!location.pathname.startsWith("/onboarding") && !profileRow?.onboarding_completed) {
+      throw redirect({ to: "/onboarding" });
+    }
+
     return { user: data.user };
   },
   component: () => <Outlet />,
