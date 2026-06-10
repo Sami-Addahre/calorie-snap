@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays } from "lucide-react";
+import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays, Menu } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
 import { analizzaImmagine, getStorico, salvaAnalisi, exportWeeklyReport, type AnalisiResult } from "@/lib/analisi.functions";
@@ -33,6 +33,7 @@ function AppPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showShare, setShowShare] = useState(false);
   const [coachInput, setCoachInput] = useState("");
@@ -288,7 +289,7 @@ function AppPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+        <div className="relative mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime">
               <Camera className="h-4 w-4 text-lime-foreground" />
@@ -302,19 +303,56 @@ function AppPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/ricette" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-              <BookOpen className="h-4 w-4" />{t('ricette')}
-            </Link>
-            <button onClick={() => setShowHistory(!showHistory)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-              <History className="h-4 w-4" />{t('storico')}
-            </button>
+            <div className="hidden md:flex items-center gap-2">
+              <Link to="/ricette" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+                <BookOpen className="h-4 w-4" />{t('ricette')}
+              </Link>
+              <button onClick={() => setShowHistory(!showHistory)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+                <History className="h-4 w-4" />{t('storico')}
+              </button>
+              <button
+                onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted"
+              >
+                <LogOut className="h-4 w-4" />{t('esci')}
+              </button>
+            </div>
             <button
-              onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted"
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface text-sm hover:bg-muted md:hidden"
+              aria-label="Apri menu"
             >
-              <LogOut className="h-4 w-4" />{t('esci')}
+              <Menu className="h-5 w-5" />
             </button>
           </div>
+          {mobileMenuOpen && (
+            <div className="absolute inset-x-0 top-full z-20 border-t border-border bg-surface shadow-lg md:hidden">
+              <div className="mx-auto max-w-3xl px-4 py-3 space-y-2">
+                <Link
+                  to="/ricette"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-3 text-sm hover:bg-muted"
+                >
+                  <BookOpen className="h-4 w-4" /> {t('ricette')}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => { setShowHistory(!showHistory); setMobileMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-3 text-left text-sm hover:bg-muted"
+                >
+                  <History className="h-4 w-4" /> {t('storico')}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => { setMobileMenuOpen(false); await supabase.auth.signOut(); window.location.href = "/auth"; }}
+                  className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-3 text-left text-sm hover:bg-muted"
+                >
+                  <LogOut className="h-4 w-4" /> {t('esci')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
