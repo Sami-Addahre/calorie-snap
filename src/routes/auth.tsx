@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { createCheckout } from "@/lib/stripe.functions";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -25,15 +27,19 @@ function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [planToBuy, setPlanToBuy] = useState<string | null>(null);
+  const [autoCheckoutRunning, setAutoCheckoutRunning] = useState(false);
+
+  const fetchCheckout = useServerFn(createCheckout);
 
   const handleGoogle = async () => {
     setError(null);
     try {
+      const plan = new URLSearchParams(window.location.search).get("plan");
+      const redirectTo = window.location.origin + (plan ? `/auth?plan=${plan}` : "/app");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: window.location.origin + "/app",
-        },
+        options: { redirectTo },
       });
       if (error) setError(error.message || "Errore Google sign-in");
     } catch (err: any) {
@@ -51,6 +57,23 @@ function AuthPage() {
       if (isLogin) {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+        // If the user arrived with a plan param, automatically create a Checkout session
+        const plan = new URLSearchParams(window.location.search).get("plan");
+        if (plan) {
+          try {
+            setAutoCheckoutRunning(true);
+            const { url } = await fetchCheckout({ data: { plan } });
+            if (url) {
+              window.location.href = url;
+              return;
+            }
+          } catch (err: any) {
+            // fallback to app
+            console.error("Auto-checkout failed", err);
+          } finally {
+            setAutoCheckoutRunning(false);
+          }
+        }
         window.location.href = "/app";
       } else {
         const { error: signUpError } = await supabase.auth.signUp({
@@ -67,6 +90,32 @@ function AuthPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    if (plan) setPlanToBuy(plan);
+
+    // If user is already authenticated (OAuth redirect back), trigger checkout
+    (async () => {
+      if (!plan) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session && !autoCheckoutRunning) {
+          setAutoCheckoutRunning(true);
+          try {
+            const { url } = await fetchCheckout({ data: { plan } });
+            if (url) window.location.href = url;
+          } catch (err) {
+            console.error("Auto-checkout after OAuth failed", err);
+          }
+        }
+      } catch (err) {
+        // ignore
+      } finally {
+        setAutoCheckoutRunning(false);
+      }
+    })();
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
