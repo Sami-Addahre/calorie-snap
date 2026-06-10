@@ -279,39 +279,47 @@ function AppPage() {
                   </button>
                 </div>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-6">
-                <div className="flex flex-col items-center">
-                  <ProgressRing
-                    value={coach?.kcal_oggi ?? 0}
-                    max={coach?.target_kcal ?? 2000}
-                    color="#c8f04d"
-                    label="Calorie"
-                    unit="kcal"
-                  />
-                  <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Flame className="h-3 w-3 text-lime" /> {coach?.analisi.length ?? 0} pasti registrati
-                  </p>
-                </div>
-                <div className="flex flex-col items-center">
-                  <ProgressRing
-                    value={coach?.ml_oggi ?? 0}
-                    max={coach?.target_ml ?? 2000}
-                    color="#38bdf8"
-                    label="Idratazione"
-                    unit="ml"
-                  />
-                  <div className="mt-3 flex gap-2">
-                    {[250, 500, 750].map((ml) => (
-                      <button
-                        key={ml}
-                        onClick={() => addWater(ml)}
-                        disabled={!isToday}
-                        className="inline-flex items-center gap-1 rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Droplet className="h-3 w-3" />+{ml}ml
-                      </button>
-                    ))}
+              <div className="mt-6 flex flex-col items-center">
+                <ProgressRing
+                  value={coach?.kcal_oggi ?? 0}
+                  max={coach?.target_kcal ?? 2000}
+                  color="#c8f04d"
+                  unit="kcal"
+                  size={200}
+                  stroke={16}
+                />
+                <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <Flame className="h-3 w-3 text-lime" /> {coach?.analisi.length ?? 0} pasti registrati
+                </p>
+              </div>
+
+              {/* 3 cerchi macros */}
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                <MacroRing label="Proteine" value={coach?.proteine_oggi ?? 0} max={coach?.target_proteine_g ?? 150} color="#f87171" />
+                <MacroRing label="Carbo" value={coach?.carbo_oggi ?? 0} max={coach?.target_carbo_g ?? 250} color="#fbbf24" />
+                <MacroRing label="Grassi" value={coach?.grassi_oggi ?? 0} max={coach?.target_grassi_g ?? 60} color="#a78bfa" />
+              </div>
+
+              {/* Idratazione */}
+              <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-4">
+                <div className="flex items-center gap-3">
+                  <Droplet className="h-5 w-5 text-sky-400" />
+                  <div>
+                    <p className="text-sm font-semibold">Idratazione</p>
+                    <p className="text-xs text-muted-foreground">{coach?.ml_oggi ?? 0} / {coach?.target_ml ?? 2000} ml</p>
                   </div>
+                </div>
+                <div className="flex gap-1.5">
+                  {[250, 500].map((ml) => (
+                    <button
+                      key={ml}
+                      onClick={() => addWater(ml)}
+                      disabled={!isToday}
+                      className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-400/20 disabled:opacity-40"
+                    >
+                      +{ml}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -369,93 +377,73 @@ function AppPage() {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {isPro
-                  ? "Chiedi quello che vuoi su dieta, nutrizione e sport. Il coach conosce i tuoi dati di oggi."
-                  : "Il tuo coach personale di dieta e sport — incluso nel piano Pro."}
+                  ? "Chiedi quello che vuoi su dieta, nutrizione e sport. Il coach conosce i tuoi dati."
+                  : `Coach AI gratuito · ${Math.max(0, (coach?.coachMsgLimit ?? 5) - (coach?.coachMsgUsed ?? 0))}/${coach?.coachMsgLimit ?? 5} messaggi rimasti oggi.`}
               </p>
 
-              {isPro ? (
-                <>
-                  <div className="mt-4 max-h-96 space-y-3 overflow-y-auto">
-                    {coachMessages.length === 0 && !coachLoading && (
-                      <div className="rounded-xl border border-border bg-background p-4">
-                        <p className="text-sm text-muted-foreground">
-                          Ciao! Sono il tuo Coach AI. Posso aiutarti con la dieta e l&apos;allenamento. Prova a chiedermi:
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {[
-                            "Cosa mi consigli per cena?",
-                            "Quante proteine mi mancano oggi?",
-                            "Allenamento per dimagrire a casa",
-                          ].map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => setCoachInput(s)}
-                              className="rounded-full border border-border bg-surface px-3 py-1 text-xs hover:border-lime"
-                            >
-                              {s}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {coachMessages.map((m, i) => (
-                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div
-                          className={`flex max-w-[85%] items-start gap-2 rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                            m.role === "user"
-                              ? "bg-lime text-lime-foreground"
-                              : "border border-lime/30 bg-lime/5 text-foreground"
-                          }`}
+              <div className="mt-4 max-h-96 space-y-3 overflow-y-auto">
+                {coachMessages.length === 0 && !coachLoading && (
+                  <div className="rounded-xl border border-border bg-background p-4">
+                    <p className="text-sm text-muted-foreground">
+                      Ciao! Sono il tuo Coach AI. Prova a chiedermi:
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {["Cosa mi consigli per cena?", "Quante proteine mi mancano oggi?", "Allenamento per dimagrire a casa"].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setCoachInput(s)}
+                          className="rounded-full border border-border bg-surface px-3 py-1 text-xs hover:border-lime"
                         >
-                          {m.role === "assistant" && <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-lime" />}
-                          <span className="whitespace-pre-wrap">{m.content}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {coachLoading && (
-                      <div className="flex justify-start">
-                        <div className="inline-flex items-center gap-2 rounded-2xl border border-lime/30 bg-lime/5 px-4 py-2.5 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin text-lime" /> Il coach sta scrivendo...
-                        </div>
-                      </div>
-                    )}
+                          {s}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  <form onSubmit={askCoach} className="mt-4 flex gap-2">
-                    <input
-                      type="text"
-                      value={coachInput}
-                      onChange={(e) => setCoachInput(e.target.value)}
-                      placeholder="Scrivi un messaggio al coach..."
-                      maxLength={500}
-                      className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none focus:ring-1 focus:ring-lime"
-                    />
-                    <button
-                      type="submit"
-                      disabled={coachLoading || !coachInput.trim()}
-                      className="rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90 disabled:opacity-50"
+                )}
+                {coachMessages.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`flex max-w-[85%] items-start gap-2 rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                        m.role === "user" ? "bg-lime text-lime-foreground" : "border border-lime/30 bg-lime/5 text-foreground"
+                      }`}
                     >
-                      {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <button
-                  onClick={() => handleUpgrade("pro")}
-                  className="mt-4 rounded-lg bg-lime px-5 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90"
-                >
-                  Passa a Pro · €9.99/mese
-                </button>
-              )}
+                      {m.role === "assistant" && <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-lime" />}
+                      <span className="whitespace-pre-wrap">{m.content}</span>
+                    </div>
+                  </div>
+                ))}
+                {coachLoading && (
+                  <div className="flex justify-start">
+                    <div className="inline-flex items-center gap-2 rounded-2xl border border-lime/30 bg-lime/5 px-4 py-2.5 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin text-lime" /> Il coach sta scrivendo...
+                    </div>
+                  </div>
+                )}
+              </div>
 
-              {coachError === "UPGRADE_REQUIRED" && (
+              <form onSubmit={askCoach} className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  value={coachInput}
+                  onChange={(e) => setCoachInput(e.target.value)}
+                  placeholder="Scrivi un messaggio al coach..."
+                  maxLength={500}
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-lime focus:outline-none focus:ring-1 focus:ring-lime"
+                />
+                <button
+                  type="submit"
+                  disabled={coachLoading || !coachInput.trim()}
+                  className="rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-lime-foreground transition-colors hover:bg-lime/90 disabled:opacity-50"
+                >
+                  {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </form>
+
+              {coachError && coachError.startsWith("COACH_LIMIT") && (
                 <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4 text-center">
                   <Lock className="mx-auto h-6 w-6 text-lime" />
-                  <p className="mt-2 text-sm text-muted-foreground">Il Coach AI è disponibile solo con il piano Pro.</p>
-                  <button
-                    onClick={() => handleUpgrade("pro")}
-                    className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90"
-                  >
+                  <p className="mt-2 text-sm text-muted-foreground">Hai usato i 5 messaggi gratuiti di oggi. Passa a Pro per messaggi illimitati.</p>
+                  <button onClick={() => handleUpgrade("pro")} className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90">
                     Passa a Pro
                   </button>
                 </div>
@@ -605,17 +593,26 @@ function AppPage() {
                   const r = item.risultato_json as AnalisiResult;
                   return (
                     <div key={item.id} className="rounded-xl border border-border bg-surface p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
                           <p className="font-display font-semibold">{r.nome_piatto}</p>
                           <p className="text-xs text-muted-foreground">
                             {item.pasto && <span className="uppercase">{item.pasto} · </span>}
                             {new Date(item.created_at).toLocaleDateString("it-IT")}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-display text-2xl font-bold text-lime">{Math.round(r.calorie)}</p>
-                          <p className="text-xs text-muted-foreground">kcal</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="font-display text-2xl font-bold text-lime">{Math.round(r.calorie)}</p>
+                            <p className="text-xs text-muted-foreground">kcal</p>
+                          </div>
+                          <button
+                            onClick={() => deletePasto(item.id)}
+                            aria-label={`Elimina ${r.nome_piatto}`}
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
                       <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
@@ -646,6 +643,35 @@ function MacroCard({ label, value, unit }: { label: string; value: number; unit:
         {value}
         <span className="ml-0.5 text-xs font-normal text-muted-foreground">{unit}</span>
       </p>
+    </div>
+  );
+}
+
+function MacroRing({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const size = 80;
+  const stroke = 8;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.min(1, max > 0 ? value / max : 0);
+  const remaining = Math.max(0, Math.round(max - value));
+  return (
+    <div className="flex flex-col items-center rounded-xl border border-border bg-background p-3">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--color-border)" strokeWidth={stroke} fill="none" />
+          <circle
+            cx={size / 2} cy={size / 2} r={r}
+            stroke={color} strokeWidth={stroke} fill="none"
+            strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
+            strokeLinecap="round" className="transition-all duration-700"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-display text-sm font-bold leading-none">{remaining}g</span>
+          <span className="mt-0.5 text-[9px] text-muted-foreground">rimasti</span>
+        </div>
+      </div>
+      <p className="mt-2 text-xs font-semibold">{label}</p>
     </div>
   );
 }

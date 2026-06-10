@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Camera } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
@@ -29,10 +28,17 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setError(null);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/app",
-    });
-    if (result.error) setError(result.error.message || "Errore Google sign-in");
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/app",
+        },
+      });
+      if (error) setError(error.message || "Errore Google sign-in");
+    } catch (err: any) {
+      setError(err?.message || "Errore Google sign-in");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

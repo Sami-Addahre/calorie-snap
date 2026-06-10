@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Gift } from "lucide-react";
 
-const SHARE_TEXT = `Ho scoperto un AI gratuito che analizza le calorie di qualsiasi piatto dalla foto!\n\nProvalo qui → https://kcalvison.lovable.app`;
+const SHARE_TEXT = `Ho trovato un AI gratuito per le calorie 📸\nkcalvison.lovable.app`;
 const SESSION_KEY = "kcalai_share_shown";
 
 export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => void }) {

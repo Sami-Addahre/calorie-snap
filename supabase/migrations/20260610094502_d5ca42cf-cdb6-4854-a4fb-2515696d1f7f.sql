@@ -1,0 +1,14 @@
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS sesso TEXT CHECK (sesso IN ('uomo','donna')),
+  ADD COLUMN IF NOT EXISTS eta INTEGER,
+  ADD COLUMN IF NOT EXISTS altezza_cm INTEGER,
+  ADD COLUMN IF NOT EXISTS peso_kg NUMERIC,
+  ADD COLUMN IF NOT EXISTS peso_target_kg NUMERIC,
+  ADD COLUMN IF NOT EXISTS stile_vita TEXT CHECK (stile_vita IN ('sedentario','leggero','moderato','attivo')),
+  ADD COLUMN IF NOT EXISTS obiettivo TEXT CHECK (obiettivo IN ('perdere','mantenere','aumentare')),
+  ADD COLUMN IF NOT EXISTS target_proteine_g INTEGER NOT NULL DEFAULT 150,
+  ADD COLUMN IF NOT EXISTS target_carbo_g INTEGER NOT NULL DEFAULT 250,
+  ADD COLUMN IF NOT EXISTS target_grassi_g INTEGER NOT NULL DEFAULT 60,
+  ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS coach_msg_oggi INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS coach_reset_date DATE NOT NULL DEFAULT CURRENT_DATE;

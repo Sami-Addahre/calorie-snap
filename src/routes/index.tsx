@@ -6,6 +6,7 @@ import { Camera, Upload, Zap, ChefHat, Smartphone, ArrowRight, Check, ShieldChec
 import { supabase } from "@/integrations/supabase/client";
 import { getStats } from "@/lib/coach.functions";
 import { LaunchBanner } from "@/components/launch-banner";
+import { ReviewsMarquee } from "@/components/reviews-marquee";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -55,6 +56,7 @@ function LandingPage() {
         <SocialProof />
         <HowItWorks />
         <Pricing />
+        <ReviewsMarquee />
         <CTA />
       </main>
       <Footer />
@@ -86,7 +88,11 @@ function Navbar() {
 
 function useLiveAnalisiCount() {
   const fetchStats = useServerFn(getStats);
-  const { data, refetch } = useQuery({ queryKey: ["stats"], queryFn: () => fetchStats(), staleTime: 30_000 });
+  const { data, refetch } = useQuery({
+    queryKey: ["stats"],
+    queryFn: () => fetchStats().catch(() => null),
+    staleTime: 30_000,
+  });
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -94,14 +100,19 @@ function useLiveAnalisiCount() {
   }, [data]);
 
   useEffect(() => {
-    const ch = supabase
-      .channel("analisi-counter")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "analisi" }, () => {
-        setCount((c) => (c == null ? c : c + 1));
-        refetch();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      ch = supabase
+        .channel("analisi-counter")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "analisi" }, () => {
+          setCount((c) => (c == null ? c : c + 1));
+          refetch();
+        })
+        .subscribe();
+    } catch {
+      // Supabase non configurato, counter disabilitato
+    }
+    return () => { if (ch) supabase.removeChannel(ch); };
   }, [refetch]);
 
   return count;

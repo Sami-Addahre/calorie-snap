@@ -94,42 +94,81 @@ export type Database = {
       }
       profiles: {
         Row: {
+          altezza_cm: number | null
           analisi_oggi: number
+          coach_msg_oggi: number
+          coach_reset_date: string
           created_at: string
+          eta: number | null
           id: string
+          obiettivo: string | null
+          onboarding_completed: boolean
+          peso_kg: number | null
+          peso_target_kg: number | null
           piano: string
           reset_date: string
+          sesso: string | null
+          stile_vita: string | null
           stripe_customer_id: string | null
           stripe_product_id: string | null
           subscription_end: string | null
+          target_carbo_g: number
+          target_grassi_g: number
           target_kcal: number
           target_ml: number
+          target_proteine_g: number
           user_id: string
         }
         Insert: {
+          altezza_cm?: number | null
           analisi_oggi?: number
+          coach_msg_oggi?: number
+          coach_reset_date?: string
           created_at?: string
+          eta?: number | null
           id?: string
+          obiettivo?: string | null
+          onboarding_completed?: boolean
+          peso_kg?: number | null
+          peso_target_kg?: number | null
           piano?: string
           reset_date?: string
+          sesso?: string | null
+          stile_vita?: string | null
           stripe_customer_id?: string | null
           stripe_product_id?: string | null
           subscription_end?: string | null
+          target_carbo_g?: number
+          target_grassi_g?: number
           target_kcal?: number
           target_ml?: number
+          target_proteine_g?: number
           user_id: string
         }
         Update: {
+          altezza_cm?: number | null
           analisi_oggi?: number
+          coach_msg_oggi?: number
+          coach_reset_date?: string
           created_at?: string
+          eta?: number | null
           id?: string
+          obiettivo?: string | null
+          onboarding_completed?: boolean
+          peso_kg?: number | null
+          peso_target_kg?: number | null
           piano?: string
           reset_date?: string
+          sesso?: string | null
+          stile_vita?: string | null
           stripe_customer_id?: string | null
           stripe_product_id?: string | null
           subscription_end?: string | null
+          target_carbo_g?: number
+          target_grassi_g?: number
           target_kcal?: number
           target_ml?: number
+          target_proteine_g?: number
           user_id?: string
         }
         Relationships: []
