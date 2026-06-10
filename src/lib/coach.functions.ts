@@ -297,6 +297,18 @@ export const saveOnboarding = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const targets = calcolaTDEE(data);
+    
+    // Fallback: crea il profilo se non esiste (per utenti registrati prima del trigger)
+    const today = new Date().toISOString().split("T")[0];
+    await supabase
+      .from("profiles")
+      .insert({ user_id: userId, reset_date: today, coach_reset_date: today })
+      .single()
+      .then(() => {}, () => {
+        // Ignora l'errore se la riga esiste già (UNIQUE constraint violation)
+      });
+    
+    // Ora aggiorna il profilo
     const { error } = await supabase
       .from("profiles")
       .update({
