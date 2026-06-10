@@ -3,17 +3,11 @@ import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const PRICE_IDS = {
-  pro: "price_1TfFFgI2tCzUVNKEYOmywHDu",
-  ristorante: "price_1TfFGXI2tCzUVNKEpTOEHdMx",
-} as const;
+// We accept three plans and create a Stripe Checkout session using price_data
+const PlanInput = z.object({ plan: z.enum(["promo", "smart", "elite"]) });
 
-const PRODUCT_TO_PLAN: Record<string, string> = {
-  prod_UeYMrEkZBrdom4: "pro",
-  prod_UeYNzgwwnBaIMR: "ristorante",
-};
-
-const PlanInput = z.object({ plan: z.enum(["pro", "ristorante"]) });
+// Legacy product -> plan mapping (empty by default, keeps backward compatibility)
+const PRODUCT_TO_PLAN: Record<string, string> = {};
 
 async function getStripeClient() {
   const Stripe = (await import("stripe")).default;
@@ -53,11 +47,30 @@ export const createCheckout = createServerFn({ method: "POST" })
     }
 
     const origin = getOrigin();
+
+    const amounts: Record<string, { cents: number; name: string }> = {
+      promo: { cents: 149, name: 'Offerta Lampo - €1.49/mese' },
+      smart: { cents: 349, name: 'Piano Smart - €3.49/mese' },
+      elite: { cents: 999, name: 'Piano Elite - €9.99/mese' },
+    };
+
+    const choice = amounts[data.plan];
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : email,
-      line_items: [{ price: PRICE_IDS[data.plan], quantity: 1 }],
-      mode: "subscription",
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            product_data: { name: choice.name },
+            unit_amount: choice.cents,
+            recurring: { interval: 'month' },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
       success_url: `${origin}/app?upgraded=1`,
       cancel_url: `${origin}/app`,
     });

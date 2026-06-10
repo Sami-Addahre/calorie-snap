@@ -23,7 +23,7 @@ export function ProgressRing({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative" style={{ width: size, height: size }}>
+      <div className="relative" style={{ width: size, height: size, fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial' }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--color-border)" strokeWidth={stroke} fill="none" />
           <circle
@@ -41,16 +41,16 @@ export function ProgressRing({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <span
-            className="font-display font-extrabold leading-none"
-            style={{ fontSize: size >= 140 ? "2.5rem" : "1.25rem" }}
+            className="font-sans font-extrabold leading-tight"
+            style={{ fontSize: size >= 200 ? "3rem" : size >= 140 ? "2.2rem" : "1.25rem", lineHeight: 1 }}
           >
             {centerLabel ?? Math.round(remaining)}
           </span>
-          <span className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">
             {centerSub ?? `${unit} rimasti`}
           </span>
           {size >= 140 && (
-            <span className="mt-0.5 text-[10px] text-muted-foreground">
+            <span className="mt-0.5 text-[12px] text-muted-foreground">
               {Math.round(value)} / {max} {unit}
             </span>
           )}

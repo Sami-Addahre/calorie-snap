@@ -38,13 +38,12 @@ export function LaunchBanner() {
   const s = Math.floor((remaining % 60_000) / 1000);
 
   return (
-    <div className="relative z-40 bg-lime text-lime-foreground">
+    <div className="relative z-40 bg-amber-600 text-amber-50">
       <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-4 py-2 text-xs sm:text-sm">
         <span className="text-center font-medium">
-          🎁 <span className="font-bold">Offerta lancio</span> — Primo mese a <span className="font-bold">€3.99</span> invece di €7.
-          Scade tra{" "}
+          ⚡ <span className="font-bold">Affrettati! Offerta Lampo Solo per Oggi!</span> — Solo <span className="font-bold">€1.49/mese</span> per il primo periodo. Scade tra{' '}
           <span className="tabular-nums font-bold">
-            {h}h {String(m).padStart(2, "0")}m {String(s).padStart(2, "0")}s
+            {h}h {String(m).padStart(2, '0')}m {String(s).padStart(2, '0')}s
           </span>
         </span>
         <button
@@ -53,7 +52,7 @@ export function LaunchBanner() {
             setDismissed(true);
           }}
           aria-label="Chiudi banner"
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 hover:bg-lime-foreground/10"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 hover:bg-amber-50/10"
         >
           <X className="h-3.5 w-3.5" />
         </button>

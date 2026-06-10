@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Camera, Upload, Zap, ChefHat, Smartphone, ArrowRight, Check, ShieldCheck, Star, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getStats } from "@/lib/coach.functions";
+import { getStorico } from "@/lib/analisi.functions";
 import { LaunchBanner } from "@/components/launch-banner";
 import { ReviewsMarquee } from "@/components/reviews-marquee";
 
@@ -152,6 +153,47 @@ function Hero() {
             <span className="ml-1 h-2 w-2 animate-pulse rounded-full bg-lime" />
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+function RecentAnalisi() {
+  const fetchStorico = useServerFn(getStorico);
+  const { data } = useQuery({ queryKey: ['home-storico'], queryFn: () => fetchStorico().catch(() => null), staleTime: 30_000 });
+  const storico = data?.storico ?? [];
+
+  if (!storico || storico.length === 0) {
+    return (
+      <section className="border-t border-border px-4 py-12">
+        <div className="mx-auto max-w-6xl text-center">
+          <h3 className="font-display text-xl font-semibold">I tuoi ultimi pasti</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Accedi per vedere le tue foto analizzate e lo storico dei pasti.</p>
+          <div className="mt-4">
+            <a href="/auth" className="inline-flex items-center gap-2 rounded-xl bg-lime px-4 py-2 text-sm font-semibold text-lime-foreground">Accedi</a>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="border-t border-border px-4 py-12">
+      <div className="mx-auto max-w-6xl">
+        <h3 className="font-display text-xl font-semibold">I tuoi ultimi pasti</h3>
+        <div className="mt-4 grid gap-3">
+          {storico.map((s: any) => (
+            <div key={s.id} className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between">
+              <div>
+                <p className="font-semibold">{s.risultato_json?.nome_piatto ?? 'Pasto'}</p>
+                <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-extrabold">{Math.round(s.kcal ?? s.risultato_json?.calorie ?? 0)} kcal</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

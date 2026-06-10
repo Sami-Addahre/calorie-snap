@@ -99,7 +99,7 @@ function AppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleUpgrade = async (plan: "pro" | "ristorante") => {
+  const handleUpgrade = async (plan: "promo" | "smart" | "elite") => {
     const { url } = await fetchCheckout({ data: { plan } });
     if (url) window.location.href = url;
   };
@@ -290,9 +290,9 @@ function AppPage() {
       <div className="border-b border-border bg-surface/40">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-2 text-xs">
           <div className="flex items-center gap-2">
-            <Crown className={`h-3.5 w-3.5 ${isPro ? "text-lime" : "text-muted-foreground"}`} />
-            <span className="text-muted-foreground">Piano:</span>
-            <span className="font-semibold uppercase tracking-wide">{isPro ? "Pro" : "Free"}</span>
+                  <Crown className={`h-3.5 w-3.5 ${isPro ? "text-lime" : "text-muted-foreground"}`} />
+                  <span className="text-muted-foreground">Piano:</span>
+                  <span className="font-semibold uppercase tracking-wide">{isPro ? "Elite" : "Free"}</span>
             {!isPro && (
               <span className="flex items-center gap-1 rounded-full border border-lime/40 bg-lime/10 px-2 py-0.5 font-semibold text-lime">
                 <Sparkles className="h-3 w-3" />
@@ -301,8 +301,8 @@ function AppPage() {
             )}
           </div>
           {!isPro ? (
-            <button onClick={() => handleUpgrade("pro")} className="font-semibold text-lime hover:underline">
-              Passa a Pro · illimitato →
+            <button onClick={() => handleUpgrade("elite")} className="font-semibold text-lime hover:underline">
+              Passa a Elite · illimitato →
             </button>
           ) : (
             <button onClick={openPortal} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
@@ -529,9 +529,9 @@ function AppPage() {
                 <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4 text-center">
                   <Lock className="mx-auto h-6 w-6 text-lime" />
                   <p className="mt-2 text-sm text-muted-foreground">Hai usato i 5 messaggi gratuiti di oggi. Passa a Pro per messaggi illimitati.</p>
-                  <button onClick={() => handleUpgrade("pro")} className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90">
-                    Passa a Pro
-                  </button>
+                  <button onClick={() => handleUpgrade("elite")} className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90">
+                        Passa a Elite
+                      </button>
                 </div>
               )}
               {coachError && coachError !== "UPGRADE_REQUIRED" && (
@@ -563,11 +563,11 @@ function AppPage() {
                 </div>
                 {tokensRemaining === 0 && (
                   <button
-                    onClick={() => handleUpgrade("pro")}
-                    className="mt-4 w-full rounded-lg bg-lime py-2.5 text-center text-sm font-semibold text-lime-foreground hover:bg-lime/90"
-                  >
-                    Passa a Pro · token illimitati + Coach AI
-                  </button>
+                      onClick={() => handleUpgrade("elite")}
+                      className="mt-4 w-full rounded-lg bg-lime py-2.5 text-center text-sm font-semibold text-lime-foreground hover:bg-lime/90"
+                    >
+                      Passa a Elite · token illimitati + Coach AI
+                    </button>
                 )}
               </div>
             )}

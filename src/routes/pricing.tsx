@@ -25,22 +25,44 @@ function PricingPage() {
 
   const plans = [
     {
-      name: "Free", price: "€0", period: "/mese",
+      key: "free",
+      name: "Free",
+      price: "€0",
+      period: "/mese",
       desc: "Per iniziare a tracciare i pasti.",
       features: ["5 analisi foto al giorno", "Storico analisi", "Coach calorie & idratazione"],
-      cta: "Inizia gratis", highlight: false,
+      cta: "Inizia gratis",
+      highlight: false,
     },
     {
-      name: "Medium", price: "€3.49", period: "/mese",
+      key: "promo",
+      name: "Offerta Lampo",
+      price: "€1.49",
+      period: "/mese",
+      desc: "Offerta limitata solo per oggi.",
+      features: ["Prezzo promozionale", "Accesso completo per il periodo promozionale"],
+      cta: "Prendi l'offerta",
+      highlight: true,
+    },
+    {
+      key: "smart",
+      name: "Smart",
+      price: "€3.49",
+      period: "/mese",
       desc: "Ideale per chi inizia, tracciamento base.",
       features: ["Tracciamento base", "Storico settimanale", "Esportazioni CSV"],
-      cta: "Scegli Medium", highlight: false,
+      cta: "Scegli Smart",
+      highlight: false,
     },
     {
-      name: "Pro", price: "€9.99", period: "/mese",
+      key: "elite",
+      name: "Elite",
+      price: "€9.99",
+      period: "/mese",
       desc: "Il più venduto: Coach AI illimitato, analisi avanzate.",
       features: ["Analisi foto illimitate", "Coach AI illimitato", "Report PDF/CSV", "Priorità supporto"],
-      cta: "Passa a Pro", highlight: true,
+      cta: "Passa a Elite",
+      highlight: false,
     },
   ];
 
@@ -100,16 +122,15 @@ function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                to="/auth"
-                className={`mt-6 block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-colors ${
-                  plan.highlight
-                    ? "bg-lime text-lime-foreground hover:bg-lime/90"
-                    : "border border-border bg-background text-foreground hover:bg-muted"
-                }`}
-              >
-                {plan.cta}
-              </Link>
+              {plan.key === 'free' ? (
+                <Link to="/auth" className="mt-6 block w-full rounded-lg py-2.5 text-center text-sm font-semibold border border-border bg-background text-foreground hover:bg-muted">
+                  {plan.cta}
+                </Link>
+              ) : (
+                <a href={`/auth?plan=${plan.key}`} className={`mt-6 block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-colors ${plan.highlight ? "bg-lime text-lime-foreground hover:bg-lime/90" : "border border-border bg-background text-foreground hover:bg-muted"}`}>
+                  {plan.cta}
+                </a>
+              )}
 
               {plan.name !== "Free" && (
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-lime/30 bg-lime/5 p-3 text-xs">
