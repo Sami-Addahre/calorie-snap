@@ -2,11 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays, Menu } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useTranslation } from "react-i18next";
-import { analizzaImmagine, getStorico, salvaAnalisi, exportWeeklyReport, type AnalisiResult } from "@/lib/analisi.functions";
-import { getCoachMessages, postCoachMessage } from "@/lib/coach_messages.functions";
+import { Camera, Upload, Loader as Loader2, ChevronRight, ChevronLeft, History, LogOut, BookOpen, Crown, Settings, Droplet, Flame, MessageCircle, Send, Lock, Sparkles, Trash2, CalendarDays } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { analizzaImmagine, getStorico, salvaAnalisi, type AnalisiResult } from "@/lib/analisi.functions";
 import { checkSubscription, createCheckout, customerPortal } from "@/lib/stripe.functions";
 import { getCoachOggi, aggiungiIdratazione, getCoachAdvice, eliminaAnalisi } from "@/lib/coach.functions";
 import { ShareDialog } from "@/components/share-dialog";
@@ -27,31 +25,22 @@ export const Route = createFileRoute("/_authenticated/app")({
 });
 
 function AppPage() {
-  const { t, i18n } = useTranslation();
   const [preview, setPreview] = useState<string | null>(null);
   const [result, setResult] = useState<AnalisiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showShare, setShowShare] = useState(false);
   const [coachInput, setCoachInput] = useState("");
   const [coachMessages, setCoachMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [dailyAnalisi, setDailyAnalisi] = useState<Array<any>>([]);
-  const [calorieConsumate, setCalorieConsumate] = useState(0);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [dailyAnalisiLoading, setDailyAnalisiLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
 
   const qc = useQueryClient();
   const fetchAnalizza = useServerFn(analizzaImmagine);
   const fetchStorico = useServerFn(getStorico);
-  const fetchMessages = useServerFn(getCoachMessages);
-  const postMessage = useServerFn(postCoachMessage);
-  const fetchExport = useServerFn(exportWeeklyReport);
   const fetchCheck = useServerFn(checkSubscription);
   const fetchCheckout = useServerFn(createCheckout);
   const fetchPortal = useServerFn(customerPortal);
@@ -68,36 +57,12 @@ function AppPage() {
   });
   const piano = subQuery.data?.piano ?? "free";
 
-  const selectedDateStr = selectedDate.toISOString().split("T")[0];
   const todayStr = new Date().toISOString().split("T")[0];
-  const isToday = selectedDateStr === todayStr;
-
-  useEffect(() => {
-    let mounted = true;
-    setDailyAnalisiLoading(true);
-
-    fetchStorico({ data: { date: selectedDateStr } })
-      .then((res) => {
-        if (!mounted) return;
-        const list = (res?.storico ?? []) as Array<any>;
-        setDailyAnalisi(list);
-        setCalorieConsumate(list.reduce((acc, curr) => acc + Number(curr.kcal ?? curr.risultato_json?.calorie ?? 0), 0));
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setDailyAnalisi([]);
-        setCalorieConsumate(0);
-      })
-      .finally(() => {
-        if (mounted) setDailyAnalisiLoading(false);
-      });
-
-    return () => { mounted = false; };
-  }, [selectedDate, refreshKey, fetchStorico]);
+  const isToday = selectedDate === todayStr;
 
   const coachQuery = useQuery({
-    queryKey: ["coach-oggi", selectedDateStr],
-    queryFn: () => fetchCoach({ data: { date: selectedDateStr } }),
+    queryKey: ["coach-oggi", selectedDate],
+    queryFn: () => fetchCoach({ data: { date: selectedDate } }),
     staleTime: 10_000,
   });
 
@@ -128,7 +93,36 @@ function AppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleUpgrade = async (plan: "promo" | "smart" | "elite") => {
+  // Realtime: aggiorna i cerchi calorie/macro immediatamente quando
+  // un'analisi viene inserita o eliminata (senza ricaricare la pagina).
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    supabase.auth.getSession().then(({ data }) => {
+      const userId = data.session?.user?.id;
+      if (!userId) return;
+      channel = supabase
+        .channel(`analisi-${userId}`)
+        .on(
+          "postgres_changes" as any,
+          {
+            event: "*",
+            schema: "public",
+            table: "analisi",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            qc.invalidateQueries({ queryKey: ["coach-oggi"] });
+          }
+        )
+        .subscribe();
+    });
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
+  const handleUpgrade = async (plan: "pro" | "ristorante") => {
     const { url } = await fetchCheckout({ data: { plan } });
     if (url) window.location.href = url;
   };
@@ -138,21 +132,10 @@ function AppPage() {
   };
 
   const storicoQuery = useQuery({
-    queryKey: ["storico", selectedDateStr],
-    queryFn: () => fetchStorico({ data: { date: selectedDateStr } }),
+    queryKey: ["storico"],
+    queryFn: () => fetchStorico(),
     enabled: showHistory,
   });
-
-  useEffect(() => {
-    // load persisted coach messages once
-    let mounted = true;
-    fetchMessages().then((res: any) => {
-      if (!mounted) return;
-      if (res?.messages) setCoachMessages(res.messages.map((m: any) => ({ role: m.role, content: m.content })));
-    }).catch(() => {});
-    return () => { mounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const startUpload = useCallback((file: File) => {
     setError(null);
@@ -179,7 +162,6 @@ function AppPage() {
         setResult(res);
         qc.invalidateQueries({ queryKey: ["coach-oggi"] });
         qc.invalidateQueries({ queryKey: ["storico"] });
-        setRefreshKey((current) => current + 1);
         setShowShare(true);
       } catch (err: any) {
         setError(err?.message || "Errore durante l'analisi");
@@ -205,15 +187,12 @@ function AppPage() {
     await fetchElimina({ data: { id } });
     qc.invalidateQueries({ queryKey: ["coach-oggi"] });
     qc.invalidateQueries({ queryKey: ["storico"] });
-    setRefreshKey((current) => current + 1);
   };
 
   const shiftDate = (deltaDays: number) => {
-    setSelectedDate((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() + deltaDays);
-      return d;
-    });
+    const d = new Date(selectedDate + "T00:00:00");
+    d.setDate(d.getDate() + deltaDays);
+    setSelectedDate(d.toISOString().split("T")[0]);
   };
 
   const askCoach = async (e: React.FormEvent) => {
@@ -222,23 +201,12 @@ function AppPage() {
     if (!domanda || coachLoading) return;
     setCoachLoading(true);
     setCoachError(null);
-    // persist user message
-    try {
-      await postMessage({ data: { role: "user", content: domanda, lang: i18n.language } });
-    } catch (err) {
-      // ignore persistence errors client-side
-    }
+    const storia = coachMessages.slice(-10);
+    setCoachMessages((prev) => [...prev, { role: "user", content: domanda }]);
     setCoachInput("");
     try {
-      // build storia from persisted messages + current
-      const persisted = coachMessages.slice(-40);
-      const storia = [...persisted, { role: "user", content: domanda }].slice(-12).map((m) => ({ role: m.role, content: m.content }));
-      const res = await fetchAdvice({ data: { domanda, storia, lang: i18n.language } });
-      // persist assistant reply
-      try { await postMessage({ data: { role: "assistant", content: res.advice, lang: i18n.language } }); } catch {}
-      // refresh local messages from server
-      const mres = await fetchMessages();
-      if (mres?.messages) setCoachMessages(mres.messages.map((m: any) => ({ role: m.role, content: m.content })));
+      const res = await fetchAdvice({ data: { domanda, storia } });
+      setCoachMessages((prev) => [...prev, { role: "assistant", content: res.advice }]);
     } catch (err: any) {
       const msg = err?.message || "Errore dal coach";
       if (msg.includes("UPGRADE_REQUIRED")) {
@@ -251,35 +219,7 @@ function AppPage() {
     }
   };
 
-  const exportCSV = async () => {
-    try {
-      const res = await fetchExport({ data: { date: selectedDateStr } });
-      if (res?.csv) {
-        const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${t('export_filename')}_${selectedDateStr}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      console.error('Export failed', err);
-    }
-  };
-
   const coach = coachQuery.data;
-  const suggestion = (() => {
-    if (!coach) return "Apri il coach per consigli personalizzati.";
-    const protDef = (coach?.target_proteine_g ?? 150) - (coach?.proteine_oggi ?? 0);
-    const waterDef = (coach?.target_ml ?? 2000) - (coach?.ml_oggi ?? 0);
-    if (protDef > 20) return "Oggi sei basso di proteine: prova uno spuntino con yogurt greco.";
-    if (waterDef > 300) return "Hai bisogno di bere ancora: prova 250 ml d'acqua ora.";
-    if ((coach?.kcal_oggi ?? 0) < (coach?.target_kcal ?? 2000) - 200) return "Hai ancora calorie disponibili: considera uno spuntino sano.";
-    return "Ottimo lavoro — sei in linea con i tuoi obiettivi oggi!";
-  })();
   const isPro = (coach?.piano ?? piano) !== "free";
   const tokensUsed = coach?.tokensUsed ?? 0;
   const tokensLimit = coach?.tokensLimit ?? 5;
@@ -289,70 +229,27 @@ function AppPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
-        <div className="relative mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime">
               <Camera className="h-4 w-4 text-lime-foreground" />
             </div>
-            <span className="font-display text-lg font-bold tracking-tight">{t('kcalAI')}</span>
-            <span className="ml-3 inline-flex items-center rounded-full bg-emerald-600/10 px-3 py-1 text-xs font-semibold text-emerald-400">
-              Oltre 14.520 analisi effettuate oggi dalla community!
-            </span>
-            <span className="ml-3 inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Flame className="h-4 w-4 text-amber-400" /> {coach?.streak ?? 0}
-            </span>
+            <span className="font-display text-lg font-bold tracking-tight">kcalAI</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-2">
-              <Link to="/ricette" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-                <BookOpen className="h-4 w-4" />{t('ricette')}
-              </Link>
-              <button onClick={() => setShowHistory(!showHistory)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-                <History className="h-4 w-4" />{t('storico')}
-              </button>
-              <button
-                onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted"
-              >
-                <LogOut className="h-4 w-4" />{t('esci')}
-              </button>
-            </div>
+            <Link to="/ricette" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+              <BookOpen className="h-4 w-4" />Ricette
+            </Link>
+            <button onClick={() => setShowHistory(!showHistory)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+              <History className="h-4 w-4" />Storico
+            </button>
             <button
-              type="button"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface text-sm hover:bg-muted md:hidden"
-              aria-label="Apri menu"
+              onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-muted"
             >
-              <Menu className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />Esci
             </button>
           </div>
-          {mobileMenuOpen && (
-            <div className="absolute inset-x-0 top-full z-20 border-t border-border bg-surface shadow-lg md:hidden">
-              <div className="mx-auto max-w-3xl px-4 py-3 space-y-2">
-                <Link
-                  to="/ricette"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-3 text-sm hover:bg-muted"
-                >
-                  <BookOpen className="h-4 w-4" /> {t('ricette')}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => { setShowHistory(!showHistory); setMobileMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-3 text-left text-sm hover:bg-muted"
-                >
-                  <History className="h-4 w-4" /> {t('storico')}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => { setMobileMenuOpen(false); await supabase.auth.signOut(); window.location.href = "/auth"; }}
-                  className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-3 text-left text-sm hover:bg-muted"
-                >
-                  <LogOut className="h-4 w-4" /> {t('esci')}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
@@ -360,9 +257,9 @@ function AppPage() {
       <div className="border-b border-border bg-surface/40">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-2 text-xs">
           <div className="flex items-center gap-2">
-                  <Crown className={`h-3.5 w-3.5 ${isPro ? "text-lime" : "text-muted-foreground"}`} />
-                  <span className="text-muted-foreground">Piano:</span>
-                  <span className="font-semibold uppercase tracking-wide">{isPro ? "Elite" : "Free"}</span>
+            <Crown className={`h-3.5 w-3.5 ${isPro ? "text-lime" : "text-muted-foreground"}`} />
+            <span className="text-muted-foreground">Piano:</span>
+            <span className="font-semibold uppercase tracking-wide">{isPro ? "Pro" : "Free"}</span>
             {!isPro && (
               <span className="flex items-center gap-1 rounded-full border border-lime/40 bg-lime/10 px-2 py-0.5 font-semibold text-lime">
                 <Sparkles className="h-3 w-3" />
@@ -371,8 +268,8 @@ function AppPage() {
             )}
           </div>
           {!isPro ? (
-            <button onClick={() => handleUpgrade("elite")} className="font-semibold text-lime hover:underline">
-              Passa a Elite · illimitato →
+            <button onClick={() => handleUpgrade("pro")} className="font-semibold text-lime hover:underline">
+              Passa a Pro · illimitato →
             </button>
           ) : (
             <button onClick={openPortal} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
@@ -399,7 +296,7 @@ function AppPage() {
                   </button>
                   <span className="inline-flex min-w-[7.5rem] items-center justify-center gap-1.5 px-2 text-sm font-semibold">
                     <CalendarDays className="h-3.5 w-3.5 text-lime" />
-                    {isToday ? "Oggi" : selectedDate.toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                    {isToday ? "Oggi" : new Date(selectedDate + "T00:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
                   </span>
                   <button
                     onClick={() => shiftDate(1)}
@@ -411,37 +308,18 @@ function AppPage() {
                   </button>
                 </div>
               </div>
-              <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="flex flex-col items-center">
-                  <ProgressRing
-                    value={calorieConsumate}
-                    max={coach?.target_kcal ?? 2000}
-                    color="#c8f04d"
-                    unit="kcal"
-                    size={200}
-                    stroke={16}
-                    centerLabel={String(Math.round(calorieConsumate))}
-                    centerSub="kcal consumati"
-                  />
-                  <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Flame className="h-3 w-3 text-lime" /> {dailyAnalisi.length} pasti registrati
-                  </p>
-                </div>
-                <div className="grid gap-4">
-                  <div className="rounded-2xl border border-border bg-background p-4">
-                    <ProgressRing
-                      value={coach?.ml_oggi ?? 0}
-                      max={coach?.target_ml ?? 2000}
-                      color="#38bdf8"
-                      unit="ml"
-                      size={140}
-                      stroke={12}
-                      centerLabel={String(Math.round(coach?.ml_oggi ?? 0))}
-                      centerSub="ml consumati"
-                      label="Idratazione"
-                    />
-                  </div>
-                </div>
+              <div className="mt-6 flex flex-col items-center">
+                <ProgressRing
+                  value={coach?.kcal_oggi ?? 0}
+                  max={coach?.target_kcal ?? 2000}
+                  color="#c8f04d"
+                  unit="kcal"
+                  size={200}
+                  stroke={16}
+                />
+                <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <Flame className="h-3 w-3 text-lime" /> {coach?.analisi.length ?? 0} pasti registrati
+                </p>
               </div>
 
               {/* 3 cerchi macros */}
@@ -449,11 +327,6 @@ function AppPage() {
                 <MacroRing label="Proteine" value={coach?.proteine_oggi ?? 0} max={coach?.target_proteine_g ?? 150} color="#f87171" />
                 <MacroRing label="Carbo" value={coach?.carbo_oggi ?? 0} max={coach?.target_carbo_g ?? 250} color="#fbbf24" />
                 <MacroRing label="Grassi" value={coach?.grassi_oggi ?? 0} max={coach?.target_grassi_g ?? 60} color="#a78bfa" />
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-border bg-background p-4">
-                <p className="text-sm font-semibold">I consigli del tuo Coach per oggi</p>
-                <p className="mt-2 text-sm text-muted-foreground">{suggestion}</p>
               </div>
 
               {/* Idratazione */}
@@ -599,9 +472,9 @@ function AppPage() {
                 <div className="mt-4 rounded-xl border border-lime/30 bg-lime/5 p-4 text-center">
                   <Lock className="mx-auto h-6 w-6 text-lime" />
                   <p className="mt-2 text-sm text-muted-foreground">Hai usato i 5 messaggi gratuiti di oggi. Passa a Pro per messaggi illimitati.</p>
-                  <button onClick={() => handleUpgrade("elite")} className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90">
-                        Passa a Elite
-                      </button>
+                  <button onClick={() => handleUpgrade("pro")} className="mt-3 rounded-lg bg-lime px-5 py-2 text-sm font-semibold text-lime-foreground hover:bg-lime/90">
+                    Passa a Pro
+                  </button>
                 </div>
               )}
               {coachError && coachError !== "UPGRADE_REQUIRED" && (
@@ -633,11 +506,11 @@ function AppPage() {
                 </div>
                 {tokensRemaining === 0 && (
                   <button
-                      onClick={() => handleUpgrade("elite")}
-                      className="mt-4 w-full rounded-lg bg-lime py-2.5 text-center text-sm font-semibold text-lime-foreground hover:bg-lime/90"
-                    >
-                      Passa a Elite · token illimitati + Coach AI
-                    </button>
+                    onClick={() => handleUpgrade("pro")}
+                    className="mt-4 w-full rounded-lg bg-lime py-2.5 text-center text-sm font-semibold text-lime-foreground hover:bg-lime/90"
+                  >
+                    Passa a Pro · token illimitati + Coach AI
+                  </button>
                 )}
               </div>
             )}
@@ -736,14 +609,7 @@ function AppPage() {
             <button onClick={() => setShowHistory(false)} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               <ChevronRight className="h-4 w-4 rotate-180" /> Torna al coach
             </button>
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-2xl font-bold">Storico analisi</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={exportCSV} className="rounded-md border border-border bg-surface px-3 py-1 text-sm hover:bg-muted">
-                  Esporta Diario Alimentare (CSV)
-                </button>
-              </div>
-            </div>
+            <h2 className="font-display text-2xl font-bold">Storico analisi</h2>
             {storicoQuery.isLoading ? (
               <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Caricamento...
